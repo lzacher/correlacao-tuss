@@ -1,28 +1,13 @@
 {
   "metadata": {
-    "title": "Tabela de Correlação TUSS - Rol - RN 465/2021 e suas alterações",
-    "description": "Correlação entre as Tabelas de Terminologia de Procedimentos e Eventos em Saúde e o Rol de Procedimentos e Eventos em Saúde",
-    "publication_date": "17/02/2025",
-    "total_records": 6735,
-    "source": "ANS - Agência Nacional de Saúde Suplementar",
-    "note": "As indicações (Sim/Não) constantes neste arquivo tem a finalidade de facilitar a comunicação entre as tabelas, conforme Nota nº 13, de 17 de janeiro de 2013",
-    "columns": {
-      "Código": "Código TUSS do procedimento/evento",
-      "Terminologia de Procedimentos e Eventos em Saúde (Tab. 22.202501)": "Descrição da terminologia TUSS",
-      "Correlação\n(Sim/Não)": "Indicativo de correlação com o Rol RN 465/2021",
-      "PROCEDIMENTO": "Descrição do procedimento no Rol",
-      "Resolução\nNormativa (alteração)": "Número da Resolução Normativa que alterou",
-      "VIGÊNCIA": "Data de vigência",
-      "OD": "Odontologia (indicador de cobertura)",
-      "AMB": "Ambulatorial (indicador de cobertura)",
-      "HCO": "Hospital com Cirurgia (indicador de cobertura)",
-      "HSO": "Hospital sem Cirurgia (indicador de cobertura)",
-      "PAC": "Pronto Atendimento/Clínica (indicador de cobertura)",
-      "DUT": "Diária UTI (indicador de cobertura)",
-      "SUBGRUPO": "Subgrupo do procedimento",
-      "GRUPO": "Grupo do procedimento",
-      "CAPÍTULO": "Capítulo do procedimento"
-    }
+    "titulo": "Correlação TUSS - Rol RN 465/2021",
+    "descricao": "Correlação entre Terminologia TUSS e Rol de Procedimentos ANS.",
+    "versao": "2025.01",
+    "data_atualizacao": "15/03/2026",
+    "fonte": "ANS - Agência Nacional de Saúde Suplementar",
+    "total_registros": 6735,
+    "com_correlacao": 5566,
+    "sem_correlacao": 1169
   },
   "data": [
     {
