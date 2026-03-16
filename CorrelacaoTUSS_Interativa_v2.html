@@ -23,22 +23,56 @@
         .info-label { font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
         .info-value { font-size: 16px; color: #333; font-weight: 600; }
 
-        /* Barra de atualização */
-        .update-bar { padding: 14px 30px; background: #fffbea; border-bottom: 2px solid #ffe58f; }
-        .update-bar-title { font-size: 13px; font-weight: 700; color: #7c5e00; margin-bottom: 10px; }
-        .update-bar-title span { font-weight: 400; color: #a07800; font-size: 12px; margin-left: 8px; }
-        .update-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-        .update-controls input[type="file"] { flex: 1; min-width: 220px; font-size: 13px; cursor: pointer; padding: 7px; border: 1px dashed #d4a800; border-radius: 6px; background: #fff; }
-        .update-btn { padding: 9px 20px; background: #faad14; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 700; color: #fff; transition: background .2s; white-space: nowrap; }
-        .update-btn:hover { background: #d48806; }
-        .update-btn:disabled { background: #ccc; cursor: not-allowed; }
-        .update-status { width: 100%; font-size: 12px; color: #555; padding-top: 6px; }
+        /* ── Painel de Atualização ─────────────────────────────────────────── */
+        .update-panel { border-bottom: 2px solid #e0e0e0; }
+
+        /* Barra principal (azul) */
+        .update-main { padding: 14px 30px; background: #e8f4fd; border-bottom: 1px solid #b8d9f0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .update-main-left { flex: 1; min-width: 200px; }
+        .update-main-title { font-size: 13px; font-weight: 700; color: #0d5c8a; margin-bottom: 3px; }
+        .update-main-sub   { font-size: 12px; color: #3a7ca5; }
+        .update-main-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+        /* Botão principal Verificar */
+        .btn-verificar { padding: 10px 22px; background: #1a7fc1; border: none; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 700; color: #fff; transition: background .2s, transform .1s; display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+        .btn-verificar:hover:not(:disabled) { background: #0d5c8a; }
+        .btn-verificar:active:not(:disabled) { transform: scale(.97); }
+        .btn-verificar:disabled { background: #9ec5e0; cursor: not-allowed; }
+
+        /* Botão secundário: mostrar/ocultar opção manual */
+        .btn-manual-toggle { padding: 10px 16px; background: transparent; border: 2px solid #9ec5e0; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 600; color: #3a7ca5; transition: all .2s; white-space: nowrap; }
+        .btn-manual-toggle:hover { background: #d0eaf8; border-color: #1a7fc1; color: #0d5c8a; }
+        .btn-manual-toggle.ativo { background: #d0eaf8; border-color: #1a7fc1; color: #0d5c8a; }
+
+        /* Resultado da verificação */
+        .update-result { padding: 0 30px; max-height: 0; overflow: hidden; transition: max-height .35s ease, padding .35s ease; }
+        .update-result.visivel { max-height: 200px; padding: 12px 30px; }
+        .result-atualizado  { background: #d4edda; border-radius: 7px; padding: 12px 16px; color: #155724; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .result-desatualizado { background: #fff3cd; border-radius: 7px; padding: 12px 16px; color: #856404; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .result-erro        { background: #f8d7da; border-radius: 7px; padding: 12px 16px; color: #721c24; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .result-verificando { background: #e2e3e5; border-radius: 7px; padding: 12px 16px; color: #383d41; font-size: 13px; display: flex; align-items: center; gap: 10px; }
+        .result-icon { font-size: 20px; flex-shrink: 0; }
+        .result-text { flex: 1; }
+        .result-text small { display: block; font-weight: 400; font-size: 11px; margin-top: 3px; opacity: .8; }
+        .btn-baixar-ans { padding: 8px 16px; background: #e0a800; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; color: #fff; transition: background .2s; white-space: nowrap; }
+        .btn-baixar-ans:hover { background: #c69500; }
+
+        /* Barra secundária: carregamento manual de XLS (colapsável) */
+        .update-manual { padding: 0 30px; max-height: 0; overflow: hidden; transition: max-height .35s ease, padding .35s ease; background: #fffbea; }
+        .update-manual.visivel { max-height: 160px; padding: 14px 30px; border-top: 1px solid #ffe58f; }
+        .update-manual-title { font-size: 12px; font-weight: 700; color: #7c5e00; margin-bottom: 10px; }
+        .update-manual-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .update-manual-controls input[type="file"] { flex: 1; min-width: 220px; font-size: 13px; cursor: pointer; padding: 7px; border: 1px dashed #d4a800; border-radius: 6px; background: #fff; }
+        .btn-converter { padding: 9px 20px; background: #faad14; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 700; color: #fff; transition: background .2s; white-space: nowrap; }
+        .btn-converter:hover { background: #d48806; }
+        .btn-converter:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Status e progresso compartilhados */
+        .update-status { font-size: 12px; color: #555; padding: 6px 30px 10px; }
         .update-status.ok   { color: #155724; font-weight: 600; }
         .update-status.erro { color: #721c24; font-weight: 600; }
-
-        /* Progresso */
-        .progress-wrap { width: 100%; background: #f0e0a0; border-radius: 4px; height: 6px; margin-top: 6px; display: none; }
-        .progress-bar  { height: 6px; background: #faad14; border-radius: 4px; transition: width .3s; width: 0%; }
+        .progress-wrap { height: 4px; background: #e0e0e0; display: none; }
+        .progress-bar  { height: 4px; background: #1a7fc1; transition: width .3s; width: 0%; }
 
         /* Controles de busca */
         .controls { padding: 18px 30px; background: #fff; border-bottom: 1px solid #e0e0e0; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; }
@@ -78,10 +112,14 @@
         /* Footer */
         .stats { padding: 14px 30px; background: #f8f9fa; border-top: 1px solid #e0e0e0; display: flex; gap: 20px; flex-wrap: wrap; font-size: 12px; color: #888; }
 
+        /* Spinner inline */
+        .spin-inline { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
+
         /* Responsivo */
         @media (max-width: 768px) {
             .header h1 { font-size: 18px; }
-            .controls, .update-controls { flex-direction: column; align-items: stretch; }
+            .update-main, .update-manual-controls { flex-direction: column; align-items: stretch; }
+            .controls { flex-direction: column; align-items: stretch; }
             .search-box { flex-direction: column; }
             .search-box input, .clear-btn { width: 100%; }
             table { font-size: 12px; }
@@ -108,25 +146,48 @@
         <div class="info-item"><span class="info-label">Registros Exibidos</span><span class="info-value" id="displayed-count">—</span></div>
     </div>
 
-    <!-- Barra de atualização: aceita XLS/XLSX diretamente -->
-    <div class="update-bar">
-        <div class="update-bar-title">
-            &#128260; Atualizar dados com novo arquivo da ANS
-            <span>Selecione o arquivo XLS/XLSX publicado pela ANS — a conversão é feita automaticamente</span>
+    <!-- ── Painel de Atualização ──────────────────────────────────────────── -->
+    <div class="update-panel">
+
+        <!-- Barra principal: Verificar Atualização -->
+        <div class="update-main">
+            <div class="update-main-left">
+                <div class="update-main-title">&#128257; Verificar Atualização da ANS</div>
+                <div class="update-main-sub" id="versao-local-info">Consulta se há versão mais recente disponível no site da ANS</div>
+            </div>
+            <div class="update-main-right">
+                <button class="btn-verificar" id="btnVerificar" onclick="verificarAtualizacao()">
+                    &#128270; Verificar Atualização
+                </button>
+                <button class="btn-manual-toggle" id="btnManualToggle" onclick="toggleManual()" title="Carregar arquivo XLS manualmente">
+                    &#128193; Carregar XLS manualmente
+                </button>
+            </div>
         </div>
-        <div class="update-controls">
-            <input type="file" id="xlsFile" accept=".xls,.xlsx"
-                   title="Selecione o arquivo XLS ou XLSX da ANS (ex: CorrelacaoTUSS_2026.xlsx)">
-            <button class="update-btn" id="loadXlsBtn" onclick="carregarXls()">
-                &#128257; Converter e Carregar
-            </button>
+
+        <!-- Resultado da verificação (colapsável) -->
+        <div class="update-result" id="updateResult"></div>
+
+        <!-- Barra secundária: carregamento manual de XLS (colapsável) -->
+        <div class="update-manual" id="updateManual">
+            <div class="update-manual-title">
+                &#128193; Carregamento manual — selecione o arquivo XLS/XLSX baixado do site da ANS
+            </div>
+            <div class="update-manual-controls">
+                <input type="file" id="xlsFile" accept=".xls,.xlsx"
+                       title="Selecione o arquivo XLS ou XLSX da ANS">
+                <button class="btn-converter" id="loadXlsBtn" onclick="carregarXls()">
+                    &#128257; Converter e Carregar
+                </button>
+            </div>
         </div>
+
+        <!-- Progresso e status compartilhados -->
         <div class="progress-wrap" id="progressWrap">
             <div class="progress-bar" id="progressBar"></div>
         </div>
-        <div class="update-status" id="updateStatus">
-            Selecione o arquivo XLS/XLSX da ANS para atualizar os dados sem reinstalar o aplicativo.
-        </div>
+        <div class="update-status" id="updateStatus"></div>
+
     </div>
 
     <!-- Controles de busca -->
@@ -152,7 +213,7 @@
             <h3>&#9888; Não foi possível carregar os dados automaticamente</h3>
             <p id="errorMsg"></p>
             <p style="margin-top:12px;font-size:12px;color:#888">
-                Use a barra amarela acima para carregar o arquivo XLS da ANS.
+                Use o botão <strong>"Carregar XLS manualmente"</strong> acima para carregar o arquivo da ANS.
             </p>
         </div>
         <table id="dataTable" style="display:none">
@@ -174,26 +235,34 @@
     </div>
 
     <div class="stats">
-        <span>&#128161; Clique nos cabeçalhos para ordenar | Use a barra amarela para atualizar com novo XLS da ANS</span>
+        <span>&#128161; Clique nos cabeçalhos para ordenar | Use "Verificar Atualização" para checar novas versões na ANS</span>
         <span id="filter-info"></span>
     </div>
+
 </div>
 
 <script>
 // ─── Estado global ────────────────────────────────────────────────────────────
 var allRecords = [], colTerm = '', colCorr = '';
 var filtered = [], currentFilter = 'all', sortCol = null, sortDir = 'asc';
+var versaoLocal = null;
+
+// Porta padrão do proxy local (proxy_ans.py)
+var PROXY_URL = 'http://127.0.0.1:5000';
 
 // ─── DOM ──────────────────────────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
-var searchInput  = $('searchInput'), clearBtn     = $('clearBtn');
-var tableBody    = $('tableBody'),   dataTable    = $('dataTable');
-var loadingBox   = $('loadingBox'),  errorBox     = $('errorBox'), errorMsg = $('errorMsg');
-var noResults    = $('noResults'),   displayedCnt = $('displayed-count');
-var simCnt       = $('sim-count'),   naoCnt       = $('nao-count'), totalRec = $('total-records');
-var filterInfo   = $('filter-info'), metaInfo     = $('meta-info'), metaVer  = $('meta-version');
+var searchInput  = $('searchInput'), clearBtn      = $('clearBtn');
+var tableBody    = $('tableBody'),   dataTable     = $('dataTable');
+var loadingBox   = $('loadingBox'),  errorBox      = $('errorBox'), errorMsg = $('errorMsg');
+var noResults    = $('noResults'),   displayedCnt  = $('displayed-count');
+var simCnt       = $('sim-count'),   naoCnt        = $('nao-count'), totalRec = $('total-records');
+var filterInfo   = $('filter-info'), metaInfo      = $('meta-info'), metaVer  = $('meta-version');
 var updateStatus = $('updateStatus'), progressWrap = $('progressWrap'), progressBar = $('progressBar');
-var headers      = document.querySelectorAll('th.sortable');
+var updateResult = $('updateResult'), updateManual = $('updateManual');
+var btnVerificar = $('btnVerificar'), btnManualToggle = $('btnManualToggle');
+var versaoLocalInfo = $('versao-local-info');
+var headers = document.querySelectorAll('th.sortable');
 
 // ─── Inicialização ────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function() {
@@ -202,27 +271,169 @@ window.addEventListener('DOMContentLoaded', function() {
         var cache = localStorage.getItem('tuss_dados');
         if (cache) {
             var arq = localStorage.getItem('tuss_arquivo') || 'cache local';
-            setStatus('Usando dados em cache de: ' + arq + '. Carregue um novo XLS para atualizar.', '');
+            setStatus('Dados carregados do cache local. Use "Verificar Atualização" para checar novas versões.', '');
             inicializar(JSON.parse(cache));
             return;
         }
     } catch(e) {}
     // Prioridade 2: tentar carregar JSON externo do mesmo diretório
-    tentarCarregarJson(['CorrelacaoTUSS_2025.json', 'CorrelacaoTUSS_2026.json', 'dados_tuss.json'], 0);
+    tentarCarregarJson(['CorrelacaoTUSS_dados.json', 'CorrelacaoTUSS_2026.01.json',
+                        'CorrelacaoTUSS_2025.json', 'dados_tuss.json'], 0);
 });
 
 function tentarCarregarJson(lista, idx) {
     if (idx >= lista.length) {
-        mostrarErro('Nenhum dado encontrado automaticamente. Use a barra amarela para carregar o arquivo XLS da ANS.');
+        mostrarErro('Nenhum dado encontrado automaticamente. Use "Carregar XLS manualmente" para carregar o arquivo da ANS.');
         return;
     }
     fetch(lista[idx])
         .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
-        .then(function(d) { inicializar(d); })
+        .then(function(d) { inicializar(d); setStatus('Dados carregados de: ' + lista[idx], ''); })
         .catch(function() { tentarCarregarJson(lista, idx + 1); });
 }
 
-// ─── Carregar e converter XLS/XLSX diretamente no navegador ──────────────────
+// ─── Verificar Atualização na ANS ─────────────────────────────────────────────
+function verificarAtualizacao() {
+    btnVerificar.disabled = true;
+    btnVerificar.innerHTML = '<span class="spin-inline"></span> Verificando...';
+    mostrarResultado('verificando', '&#128270; Consultando o site da ANS...', 'Aguarde, estamos verificando se há uma versão mais recente disponível.');
+    mostrarProgresso(30);
+
+    // Tentar via proxy local (proxy_ans.py)
+    fetch(PROXY_URL + '/verificar', { signal: AbortSignal.timeout(15000) })
+        .then(function(r) {
+            if (!r.ok) throw new Error('Proxy retornou erro ' + r.status);
+            return r.json();
+        })
+        .then(function(dados) {
+            mostrarProgresso(100);
+            processarResultadoVerificacao(dados);
+        })
+        .catch(function(err) {
+            // Proxy não disponível: orientar o usuário
+            mostrarProgresso(100);
+            mostrarResultado('erro',
+                '&#128268; Proxy local não encontrado',
+                'Para verificar automaticamente, inicie o proxy: <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px">python proxy_ans.py</code> — ' +
+                'ou use "Carregar XLS manualmente" para atualizar sem o proxy.'
+            );
+            setStatus('Proxy não disponível. Inicie proxy_ans.py ou use o carregamento manual.', '');
+        })
+        .finally(function() {
+            btnVerificar.disabled = false;
+            btnVerificar.innerHTML = '&#128270; Verificar Atualização';
+            ocultarProgresso();
+        });
+}
+
+function processarResultadoVerificacao(dados) {
+    if (dados.erro) {
+        mostrarResultado('erro', '&#10060; Erro ao consultar a ANS', dados.erro);
+        return;
+    }
+
+    var nomeAns = dados.mais_recente ? dados.mais_recente.nome : '';
+    var urlAns  = dados.mais_recente ? dados.mais_recente.url  : '';
+
+    // Extrair versão do nome do arquivo da ANS (ex: TUSS202601 → 2026.01)
+    var versaoAns = extrairVersao(nomeAns);
+
+    if (!versaoLocal) {
+        // Sem dados locais: apenas informar o que está disponível
+        mostrarResultado('desatualizado',
+            '&#128229; Versão disponível na ANS: ' + (versaoAns || nomeAns),
+            'Nenhum dado local encontrado. Baixe o arquivo para começar.',
+            urlAns, nomeAns
+        );
+        return;
+    }
+
+    if (versaoAns && versaoAns === versaoLocal) {
+        mostrarResultado('atualizado',
+            '&#10003; Você está usando a versão mais recente!',
+            'Versão em uso: ' + versaoLocal + ' | Versão na ANS: ' + versaoAns
+        );
+    } else if (versaoAns && versaoAns > versaoLocal) {
+        mostrarResultado('desatualizado',
+            '&#9888; Nova versão disponível: ' + versaoAns,
+            'Versão em uso: ' + versaoLocal + ' | Baixe o novo arquivo para atualizar.',
+            urlAns, nomeAns
+        );
+    } else {
+        mostrarResultado('atualizado',
+            '&#10003; Dados atualizados',
+            'Versão em uso: ' + (versaoLocal || '—') + ' | Versão ANS: ' + (versaoAns || nomeAns)
+        );
+    }
+
+    // Atualizar subtítulo com info da versão
+    versaoLocalInfo.textContent = 'Versão em uso: ' + (versaoLocal || '—') + ' | ANS: ' + (versaoAns || nomeAns);
+}
+
+function extrairVersao(nome) {
+    if (!nome) return '';
+    var m = nome.match(/TUSS(\d{4})(\d{2})/i);
+    return m ? m[1] + '.' + m[2] : '';
+}
+
+// ─── Exibir resultado da verificação ─────────────────────────────────────────
+function mostrarResultado(tipo, titulo, detalhe, urlBaixar, nomeArquivo) {
+    var classes = {
+        atualizado:   'result-atualizado',
+        desatualizado:'result-desatualizado',
+        erro:         'result-erro',
+        verificando:  'result-verificando'
+    };
+    var icones = { atualizado: '✓', desatualizado: '⚠', erro: '✗', verificando: '⟳' };
+    var html =
+        '<div class="' + (classes[tipo] || 'result-verificando') + '">' +
+        '<span class="result-icon">' + icones[tipo] + '</span>' +
+        '<div class="result-text">' +
+            '<strong>' + titulo + '</strong>' +
+            '<small>' + detalhe + '</small>' +
+        '</div>';
+    if (urlBaixar) {
+        html += '<button class="btn-baixar-ans" onclick="baixarArquivoAns(\'' +
+                urlBaixar.replace(/'/g, "\\'") + '\',\'' +
+                (nomeArquivo || '').replace(/'/g, "\\'") + '\')">' +
+                '&#11015; Baixar e Atualizar</button>';
+    }
+    html += '</div>';
+    updateResult.innerHTML = html;
+    updateResult.classList.add('visivel');
+}
+
+// ─── Baixar XLS via proxy e converter ────────────────────────────────────────
+function baixarArquivoAns(url, nome) {
+    setStatus('Baixando arquivo da ANS via proxy...', '');
+    mostrarProgresso(20);
+
+    fetch(PROXY_URL + '/baixar', { signal: AbortSignal.timeout(60000) })
+        .then(function(r) {
+            if (!r.ok) throw new Error('Erro no download: ' + r.status);
+            return r.arrayBuffer();
+        })
+        .then(function(buffer) {
+            mostrarProgresso(60);
+            setStatus('Convertendo planilha...', '');
+            converterBuffer(buffer, nome || 'arquivo_ans.xlsx');
+        })
+        .catch(function(err) {
+            setStatus('Erro ao baixar via proxy: ' + err.message + '. Use o carregamento manual.', 'erro');
+            ocultarProgresso();
+            // Abrir opção manual automaticamente
+            if (!updateManual.classList.contains('visivel')) toggleManual();
+        });
+}
+
+// ─── Toggle da opção manual ───────────────────────────────────────────────────
+function toggleManual() {
+    var visivel = updateManual.classList.toggle('visivel');
+    btnManualToggle.classList.toggle('ativo', visivel);
+    btnManualToggle.textContent = visivel ? '✕ Fechar opção manual' : '📁 Carregar XLS manualmente';
+}
+
+// ─── Carregar e converter XLS/XLSX via seleção de arquivo ────────────────────
 function carregarXls() {
     var fi = $('xlsFile');
     if (!fi.files.length) {
@@ -237,118 +448,8 @@ function carregarXls() {
 
     var reader = new FileReader();
     reader.onload = function(e) {
-        try {
-            setStatus('Convertendo planilha para dados...', '');
-            mostrarProgresso(50);
-
-            // Ler workbook com SheetJS
-            var data    = new Uint8Array(e.target.result);
-            var wb      = XLSX.read(data, { type: 'array', cellDates: true });
-            var abaName = wb.SheetNames[0];
-            var ws      = wb.Sheets[abaName];
-
-            // Converter para array de arrays para localizar cabeçalho
-            var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
-            // Localizar linha de cabeçalho (contém "digo" = Código)
-            var headerRow = -1;
-            for (var i = 0; i < Math.min(raw.length, 20); i++) {
-                var row = raw[i];
-                if (row && row.some(function(v) {
-                    return v && String(v).toLowerCase().indexOf('digo') >= 0;
-                })) {
-                    headerRow = i;
-                    break;
-                }
-            }
-            if (headerRow < 0) {
-                setStatus('Cabeçalho não encontrado. Verifique se é o arquivo correto da ANS.', 'erro');
-                btn.disabled = false;
-                ocultarProgresso();
-                return;
-            }
-
-            // Extrair cabeçalhos e dados
-            var cols = raw[headerRow].map(function(v) { return v == null ? '' : String(v).trim(); });
-            var registros = [];
-            for (var r = headerRow + 1; r < raw.length; r++) {
-                var row = raw[r];
-                if (!row || row.every(function(v) { return v == null || v === ''; })) continue;
-                var obj = {};
-                cols.forEach(function(col, ci) {
-                    var val = row[ci];
-                    // Formatar datas
-                    if (val instanceof Date) {
-                        val = val.toLocaleDateString('pt-BR');
-                    }
-                    obj[col] = (val === null || val === undefined) ? null : val;
-                });
-                registros.push(obj);
-            }
-
-            if (!registros.length) {
-                setStatus('Nenhum registro encontrado na planilha.', 'erro');
-                btn.disabled = false;
-                ocultarProgresso();
-                return;
-            }
-
-            mostrarProgresso(80);
-
-            // Detectar coluna de correlação
-            var chaves = Object.keys(registros[0]);
-            var colCorrLocal = chaves.find(function(k) {
-                return k.toLowerCase().indexOf('correla') >= 0 ||
-                       k.indexOf('Sim') >= 0 || k.indexOf('Não') >= 0;
-            }) || '';
-            var sim = registros.filter(function(r) {
-                return String(r[colCorrLocal] || '').toUpperCase() === 'SIM';
-            }).length;
-
-            // Montar envelope JSON
-            var versao = new Date().toISOString().slice(0, 7).replace('-', '.');
-            var dados = {
-                metadata: {
-                    titulo:           'Correlação TUSS - Rol RN 465/2021',
-                    descricao:        'Correlação entre Terminologia TUSS e Rol de Procedimentos ANS.',
-                    versao:           versao,
-                    data_atualizacao: new Date().toLocaleDateString('pt-BR'),
-                    fonte:            'ANS - Agência Nacional de Saúde Suplementar',
-                    total_registros:  registros.length,
-                    com_correlacao:   sim,
-                    sem_correlacao:   registros.length - sim,
-                    arquivo_origem:   file.name
-                },
-                data: registros
-            };
-
-            mostrarProgresso(95);
-
-            // Salvar JSON no localStorage
-            var jsonStr = JSON.stringify(dados);
-            try {
-                localStorage.setItem('tuss_dados', jsonStr);
-                localStorage.setItem('tuss_arquivo', file.name);
-            } catch(e) { /* localStorage cheio */ }
-
-            // Oferecer download do JSON gerado
-            baixarJson(jsonStr, versao);
-
-            mostrarProgresso(100);
-            setStatus(
-                'Conversão concluída! ' + registros.length.toLocaleString('pt-BR') + ' registros (' +
-                sim.toLocaleString('pt-BR') + ' SIM / ' + (registros.length - sim).toLocaleString('pt-BR') +
-                ' NÃO). O arquivo JSON foi baixado automaticamente para uso futuro.',
-                'ok'
-            );
-
-            inicializar(dados);
-
-        } catch(err) {
-            setStatus('Erro ao processar o arquivo: ' + err.message, 'erro');
-        }
+        converterBuffer(e.target.result, file.name);
         btn.disabled = false;
-        ocultarProgresso();
     };
     reader.onerror = function() {
         setStatus('Erro ao ler o arquivo.', 'erro');
@@ -358,19 +459,119 @@ function carregarXls() {
     reader.readAsArrayBuffer(file);
 }
 
+// ─── Converter ArrayBuffer (XLS/XLSX) para dados e inicializar ───────────────
+function converterBuffer(buffer, nomeArquivo) {
+    try {
+        setStatus('Convertendo planilha para dados...', '');
+        mostrarProgresso(50);
+
+        var data = new Uint8Array(buffer);
+        var wb   = XLSX.read(data, { type: 'array', cellDates: true });
+        var ws   = wb.Sheets[wb.SheetNames[0]];
+        var raw  = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+        // Localizar linha de cabeçalho
+        var headerRow = -1;
+        for (var i = 0; i < Math.min(raw.length, 20); i++) {
+            if (raw[i] && raw[i].some(function(v) {
+                return v && String(v).toLowerCase().indexOf('digo') >= 0;
+            })) { headerRow = i; break; }
+        }
+        if (headerRow < 0) {
+            setStatus('Cabeçalho não encontrado. Verifique se é o arquivo correto da ANS.', 'erro');
+            ocultarProgresso();
+            return;
+        }
+
+        var cols = raw[headerRow].map(function(v) { return v == null ? '' : String(v).trim(); });
+        var registros = [];
+        for (var r = headerRow + 1; r < raw.length; r++) {
+            var row = raw[r];
+            if (!row || row.every(function(v) { return v == null || v === ''; })) continue;
+            var obj = {};
+            cols.forEach(function(col, ci) {
+                var val = row[ci];
+                if (val instanceof Date) val = val.toLocaleDateString('pt-BR');
+                obj[col] = (val === null || val === undefined) ? null : val;
+            });
+            registros.push(obj);
+        }
+
+        if (!registros.length) {
+            setStatus('Nenhum registro encontrado na planilha.', 'erro');
+            ocultarProgresso();
+            return;
+        }
+
+        mostrarProgresso(80);
+
+        // Detectar coluna de correlação e contar SIM
+        var chaves = Object.keys(registros[0]);
+        var colCorrLocal = chaves.find(function(k) {
+            return k.toLowerCase().indexOf('correla') >= 0;
+        }) || '';
+        var sim = registros.filter(function(r) {
+            return String(r[colCorrLocal] || '').toUpperCase() === 'SIM';
+        }).length;
+
+        // Extrair versão do nome do arquivo
+        var versao = extrairVersao(nomeArquivo) || new Date().toISOString().slice(0,7).replace('-','.');
+
+        var dados = {
+            metadata: {
+                titulo:           'Correlação TUSS - Rol RN 465/2021',
+                versao:           versao,
+                data_atualizacao: new Date().toLocaleDateString('pt-BR'),
+                fonte:            'ANS - Agência Nacional de Saúde Suplementar',
+                total_registros:  registros.length,
+                com_correlacao:   sim,
+                sem_correlacao:   registros.length - sim,
+                arquivo_origem:   nomeArquivo
+            },
+            data: registros
+        };
+
+        mostrarProgresso(95);
+
+        // Salvar no localStorage
+        var jsonStr = JSON.stringify(dados);
+        try {
+            localStorage.setItem('tuss_dados', jsonStr);
+            localStorage.setItem('tuss_arquivo', nomeArquivo);
+        } catch(e) { /* localStorage cheio */ }
+
+        // Oferecer download do JSON gerado
+        baixarJson(jsonStr, versao);
+
+        mostrarProgresso(100);
+        setStatus(
+            'Conversão concluída! ' + registros.length.toLocaleString('pt-BR') +
+            ' registros (' + sim.toLocaleString('pt-BR') + ' SIM / ' +
+            (registros.length - sim).toLocaleString('pt-BR') + ' NÃO). JSON baixado automaticamente.',
+            'ok'
+        );
+
+        // Fechar painel manual após sucesso
+        if (updateManual.classList.contains('visivel')) toggleManual();
+
+        inicializar(dados);
+
+    } catch(err) {
+        setStatus('Erro ao processar o arquivo: ' + err.message, 'erro');
+    }
+    ocultarProgresso();
+}
+
 // ─── Download automático do JSON gerado ──────────────────────────────────────
 function baixarJson(jsonStr, versao) {
     try {
         var blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
         var url  = URL.createObjectURL(blob);
         var a    = document.createElement('a');
-        a.href     = url;
-        a.download = 'CorrelacaoTUSS_' + versao + '.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    } catch(e) { /* download não suportado */ }
+        a.href = url; a.download = 'CorrelacaoTUSS_' + versao + '.json';
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+    } catch(e) {}
 }
 
 // ─── Inicializar com dados ────────────────────────────────────────────────────
@@ -381,15 +582,20 @@ function inicializar(dados) {
 
     var chaves = Object.keys(registros[0]);
     colTerm = chaves.find(function(k) { return k.toLowerCase().indexOf('terminologia') >= 0; }) || chaves[1] || '';
-    colCorr = chaves.find(function(k) {
-        return k.toLowerCase().indexOf('correla') >= 0 || k.indexOf('Sim') >= 0 || k.indexOf('Não') >= 0;
-    }) || '';
-
+    colCorr = chaves.find(function(k) { return k.toLowerCase().indexOf('correla') >= 0; }) || '';
     allRecords = registros;
+
+    // Guardar versão local para comparação
+    versaoLocal = meta.versao || null;
 
     var dataAtual = meta.data_atualizacao || new Date().toLocaleDateString('pt-BR');
     metaInfo.textContent = 'Atualizado em ' + dataAtual + ' | ANS — Agência Nacional de Saúde Suplementar';
     metaVer.textContent  = meta.versao ? 'v' + meta.versao : 'versão atual';
+
+    // Atualizar subtítulo com versão local
+    if (versaoLocal) {
+        versaoLocalInfo.textContent = 'Versão em uso: ' + versaoLocal + ' | Clique para verificar se há atualização na ANS';
+    }
 
     var sim = registros.filter(function(r) { return String(r[colCorr] || '').toUpperCase() === 'SIM'; }).length;
     totalRec.textContent    = registros.length.toLocaleString('pt-BR');
@@ -445,7 +651,7 @@ function renderizar() {
         tr.innerHTML =
             '<td><strong>' + esc(r['Código']) + '</strong></td>' +
             '<td>' + esc(r[colTerm]) + '</td>' +
-            '<td><span class="badge ' + (corr === 'SIM' ? 'badge-sim' : 'badge-nao') + '">' + esc(corr) + '</span></td>' +
+            '<td><span class="badge ' + (corr.toUpperCase() === 'SIM' ? 'badge-sim' : 'badge-nao') + '">' + esc(corr) + '</span></td>' +
             '<td>' + esc(r['PROCEDIMENTO']) + '</td>' +
             '<td>' + esc(r['SUBGRUPO']) + '</td>' +
             '<td>' + esc(r['GRUPO']) + '</td>' +
@@ -463,8 +669,8 @@ function esc(v) {
 
 // ─── Utilitários de UI ────────────────────────────────────────────────────────
 function setStatus(msg, tipo) {
-    updateStatus.textContent  = msg;
-    updateStatus.className    = 'update-status' + (tipo ? ' ' + tipo : '');
+    updateStatus.textContent = msg;
+    updateStatus.className   = 'update-status' + (tipo ? ' ' + tipo : '');
 }
 function mostrarProgresso(pct) {
     progressWrap.style.display = 'block';
