@@ -304,13 +304,14 @@ function verificarAtualizacao() {
     var GITHUB_JSON_URL = 'https://raw.githubusercontent.com/lzacher/correlacao-tuss/master/CorrelacaoTUSS_dados.json';
     var ANS_PAGINA_URL  = 'https://www.gov.br/ans/pt-br/acesso-a-informacao/participacao-da-sociedade/atualizacao-do-rol-de-procedimentos';
 
-    // Buscar apenas os primeiros 2KB do JSON para extrair os metadados (evita baixar 4MB)
-    fetch(GITHUB_JSON_URL, {
-        headers: { 'Range': 'bytes=0-2048' },
+    // Criar arquivo de metadados separado para evitar baixar o JSON completo (4MB)
+    // Usa o arquivo metadata.json que contém apenas os metadados de versão
+    var META_URL = GITHUB_JSON_URL.replace('CorrelacaoTUSS_dados.json', 'CorrelacaoTUSS_meta.json');
+    fetch(META_URL, {
         signal: AbortSignal.timeout(15000)
     })
         .then(function(r) {
-            if (!r.ok && r.status !== 206) throw new Error('HTTP ' + r.status);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.text();
         })
         .then(function(texto) {
