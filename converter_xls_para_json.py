@@ -1,278 +1,456 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Conversor XLS → JSON — Correlação TUSS
-=======================================
-Converte o arquivo Excel da ANS para JSON sem modificar o aplicativo HTML.
+converter_xls_para_json.py
+==========================
+Utilitário para manter a tabela de Correlação TUSS atualizada.
 
-O HTML (CorrelacaoTUSS_Interativa_v2.html) carrega o JSON dinamicamente,
-portanto basta substituir o arquivo JSON para atualizar os dados.
+Fluxo completo (modo padrão - sem argumentos):
+  1. Acessa a página da ANS e detecta o arquivo XLSX mais recente
+  2. Baixa o arquivo automaticamente (simulando navegador para evitar bloqueio 403)
+  3. Converte para JSON estruturado
+  4. Salva como CorrelacaoTUSS_dados.json (nome fixo, lido pelo HTML automaticamente)
+  5. Salva cópia versionada (ex: CorrelacaoTUSS_2025.03.json)
+  6. Exibe resumo completo
 
-Uso:
-  python converter_xls_para_json.py --arquivo novo_tuss.xlsx
-  python converter_xls_para_json.py --arquivo novo_tuss.xlsx --versao 2026.01
-  python converter_xls_para_json.py --arquivo novo_tuss.xlsx --sem-push
-  python converter_xls_para_json.py --verificar
+Modos de uso:
+  python converter_xls_para_json.py                    # Download automático da ANS
+  python converter_xls_para_json.py --arquivo meu.xlsx # Usar arquivo local
+  python converter_xls_para_json.py --verificar        # Checar versão disponível na ANS
+  python converter_xls_para_json.py --push             # Converter + push ao GitHub
+  python converter_xls_para_json.py --saida /pasta     # Definir pasta de saída
+
+Requisitos:
+  pip install requests beautifulsoup4 pandas openpyxl
 """
 
+import os
 import sys
 import json
 import argparse
+import tempfile
 import subprocess
-from pathlib import Path
+import re
 from datetime import datetime
+from pathlib import Path
+
+try:
+    import requests
+    from bs4 import BeautifulSoup
+except ImportError:
+    print("[ERRO] Instale: pip install requests beautifulsoup4")
+    sys.exit(1)
 
 try:
     import pandas as pd
 except ImportError:
-    print("Dependencia ausente: pandas\nExecute: pip install pandas openpyxl")
+    print("[ERRO] Instale: pip install pandas openpyxl")
     sys.exit(1)
 
-REPO_DIR  = Path(__file__).parent.resolve()
-JSON_FILE = REPO_DIR / "CorrelacaoTUSS_2025.json"
-LOG_FILE  = REPO_DIR / "atualizacoes.log"
+# ─── Configurações ─────────────────────────────────────────────────────────────
+
+ANS_PAGINA = (
+    "https://www.gov.br/ans/pt-br/acesso-a-informacao/"
+    "participacao-da-sociedade/atualizacao-do-rol-de-procedimentos"
+)
+ANS_BASE_URL = "https://www.gov.br"
+
+# Nome fixo do JSON principal — é este que o HTML carrega automaticamente
+JSON_PRINCIPAL = "CorrelacaoTUSS_dados.json"
+
+REPO_DIR = Path(__file__).parent.resolve()
+LOG_FILE = REPO_DIR / "atualizacoes.log"
+
+# Headers que simulam navegador Chrome real (necessário para evitar bloqueio 403 da ANS)
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;"
+        "q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
+    ),
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Referer": ANS_PAGINA,
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
 
 
-# ─── Logger ───────────────────────────────────────────────────────────────────
+# ─── Logger ────────────────────────────────────────────────────────────────────
 
-class Logger:
-    def __init__(self, path):
-        self.path = path
-        self._ts  = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    def _w(self, nivel, msg):
-        linha = f"[{datetime.now().strftime('%H:%M:%S')}] [{nivel}] {msg}"
-        print(linha)
-        with open(self.path, "a", encoding="utf-8") as f:
-            f.write(f"[{self._ts}] {linha}\n")
-
-    def info(self, m):  self._w("INFO ", m)
-    def ok(self, m):    self._w("OK   ", f"✓ {m}")
-    def warn(self, m):  self._w("AVISO", f"⚠ {m}")
-    def erro(self, m):  self._w("ERRO ", f"✗ {m}")
-    def step(self, n, t, m): self._w("PASSO", f"[{n}/{t}] {m}")
-
-
-log = Logger(LOG_FILE)
-
-
-# ─── Conversão XLS → JSON ─────────────────────────────────────────────────────
-
-def converter(caminho: Path, versao: str) -> dict | None:
-    log.info(f"Lendo: {caminho.name}")
+def log(nivel, msg):
+    icones = {"OK": "✓", "ERRO": "✗", "INFO": "→", "PASSO": "◆", "AVISO": "⚠"}
+    icone = icones.get(nivel, "·")
+    linha = f"[{nivel:<5}] {icone} {msg}"
+    print(linha)
     try:
-        xls    = pd.ExcelFile(caminho)
-        aba    = xls.sheet_names[0]
-        log.info(f"Aba: '{aba}'")
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            f.write(f"[{ts}] {linha}\n")
+    except Exception:
+        pass
 
-        df = pd.read_excel(caminho, sheet_name=aba, header=None)
 
-        # Localizar linha de cabeçalho
-        header_row = None
-        for i, row in df.iterrows():
-            if any("digo" in str(v) for v in row.values):
-                header_row = i
-                break
-        if header_row is None:
-            log.erro("Cabeçalho não encontrado.")
-            return None
+# ─── Detecção do arquivo mais recente na ANS ──────────────────────────────────
 
-        df = pd.read_excel(caminho, sheet_name=aba, header=header_row)
-        df = df.dropna(how="all").reset_index(drop=True)
+def detectar_arquivo_ans():
+    """
+    Acessa a página da ANS e retorna (nome_arquivo, url_download) do
+    arquivo de Correlação TUSS mais recente publicado.
+    """
+    log("PASSO", "Consultando página da ANS para detectar versão mais recente...")
+    try:
+        r = requests.get(ANS_PAGINA, headers=HEADERS, timeout=30)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Não foi possível acessar a página da ANS: {e}")
 
-        # Normalizar datas e NaN
-        for col in df.columns:
-            if pd.api.types.is_datetime64_any_dtype(df[col]):
-                df[col] = df[col].dt.strftime("%d/%m/%Y")
-        df = df.where(pd.notnull(df), None)
+    soup = BeautifulSoup(r.text, "html.parser")
+    candidatos = []
 
-        registros = df.to_dict(orient="records")
-        total     = len(registros)
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        nome = os.path.basename(href.split("?")[0]).rstrip("/")
+        nome_lower = nome.lower()
 
-        col_corr = next(
-            (c for c in df.columns if "Sim" in str(c) or "Não" in str(c) or "orrel" in str(c)),
-            None,
+        # Critério: arquivo de correlação TUSS em XLS/XLSX
+        if (("correlac" in nome_lower or "correla" in nome_lower)
+                and "tuss" in nome_lower
+                and (nome_lower.endswith(".xlsx") or nome_lower.endswith(".xls"))):
+
+            # Montar URL de download direto (padrão Plone CMS da ANS: @@download/file)
+            base = href.rstrip("/").replace("/view", "").replace("/@@download/file", "")
+            url_dl = (base if base.startswith("http") else ANS_BASE_URL + base) + "/@@download/file"
+            candidatos.append((nome, url_dl))
+
+    if not candidatos:
+        raise RuntimeError(
+            "Nenhum arquivo de Correlação TUSS encontrado na página da ANS.\n"
+            f"Verifique manualmente: {ANS_PAGINA}"
         )
-        sim = sum(1 for r in registros if str(r.get(col_corr, "")).upper() == "SIM") if col_corr else 0
 
-        dados = {
-            "metadata": {
-                "titulo":            "Correlação TUSS - Rol RN 465/2021",
-                "descricao":         "Correlação entre Terminologia TUSS e Rol de Procedimentos ANS.",
-                "versao":            versao,
-                "data_atualizacao":  datetime.now().strftime("%d/%m/%Y"),
-                "fonte":             "ANS - Agência Nacional de Saúde Suplementar",
-                "total_registros":   total,
-                "com_correlacao":    sim,
-                "sem_correlacao":    total - sim,
-            },
-            "data": registros,
-        }
+    # Remover duplicatas e ordenar pelo nome (mais recente = maior string)
+    vistos = set()
+    unicos = []
+    for item in candidatos:
+        if item[0] not in vistos:
+            vistos.add(item[0])
+            unicos.append(item)
+    unicos.sort(key=lambda x: x[0], reverse=True)
 
-        log.ok(f"Convertido: {total} registros ({sim} SIM / {total - sim} NÃO)")
-        return dados
+    nome_escolhido, url_escolhida = unicos[0]
+    log("OK",   f"Arquivo mais recente: {nome_escolhido}")
+    log("INFO", f"URL de download: {url_escolhida}")
 
-    except Exception as e:
-        log.erro(f"Falha na conversão: {e}")
-        return None
+    if len(unicos) > 1:
+        log("INFO", f"Outros arquivos disponíveis ({len(unicos) - 1}):")
+        for nome, _ in unicos[1:4]:
+            log("INFO", f"  · {nome}")
+
+    return nome_escolhido, url_escolhida
 
 
-def salvar_json(dados: dict, versao: str) -> Path | None:
-    """Salva o JSON e retorna o caminho do arquivo criado."""
+# ─── Download ─────────────────────────────────────────────────────────────────
+
+def baixar_arquivo(url, destino):
+    """Baixa o arquivo XLSX da ANS simulando um navegador real."""
+    log("PASSO", "Baixando arquivo da ANS...")
     try:
-        def serial(obj):
-            if hasattr(obj, "strftime"):
-                return obj.strftime("%d/%m/%Y")
-            return str(obj)
+        r = requests.get(url, headers=HEADERS, stream=True, timeout=60)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Falha no download: {e}")
 
-        # Salvar com nome versionado
-        nome_versionado = REPO_DIR / f"CorrelacaoTUSS_{versao}.json"
-        with open(nome_versionado, "w", encoding="utf-8") as f:
-            json.dump(dados, f, ensure_ascii=False, indent=2, default=serial)
+    content_type = r.headers.get("Content-Type", "")
+    if "html" in content_type:
+        raise RuntimeError(
+            "O servidor retornou HTML em vez do arquivo XLSX. "
+            "Possível bloqueio anti-bot ou URL incorreta."
+        )
 
-        # Manter também o nome padrão (compatibilidade com HTML)
-        with open(JSON_FILE, "w", encoding="utf-8") as f:
-            json.dump(dados, f, ensure_ascii=False, indent=2, default=serial)
+    with open(destino, "wb") as f:
+        for chunk in r.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
 
-        tam = nome_versionado.stat().st_size / 1024 / 1024
-        log.ok(f"JSON salvo: {nome_versionado.name} ({tam:.1f} MB)")
-        log.ok(f"JSON padrão atualizado: {JSON_FILE.name}")
-        return nome_versionado
-
-    except Exception as e:
-        log.erro(f"Falha ao salvar JSON: {e}")
-        return None
+    tamanho = os.path.getsize(destino) / 1024
+    log("OK", f"Download concluído: {tamanho:.1f} KB")
 
 
-def git_push(versao: str, total: int) -> bool:
-    """Faz commit e push apenas do JSON atualizado."""
+# ─── Conversão XLSX → JSON ────────────────────────────────────────────────────
+
+def converter(caminho_xlsx, nome_arquivo=""):
+    """Lê o XLSX e retorna (dados_dict, versao_str)."""
+    log("PASSO", "Convertendo XLSX para JSON...")
+
+    # Abrir com openpyxl (xlsx) ou xlrd (xls legado)
+    try:
+        xl = pd.ExcelFile(str(caminho_xlsx), engine="openpyxl")
+    except Exception:
+        try:
+            xl = pd.ExcelFile(str(caminho_xlsx), engine="xlrd")
+        except Exception as e:
+            raise RuntimeError(f"Não foi possível abrir o arquivo Excel: {e}")
+
+    # Detectar aba correta
+    aba = xl.sheet_names[0]
+    for nome_aba in xl.sheet_names:
+        if any(k in nome_aba.lower() for k in ["correlac", "tuss", "rol", "procedimento"]):
+            aba = nome_aba
+            break
+    log("INFO", f"Aba utilizada: \"{aba}\"")
+
+    # Ler sem cabeçalho para detectar linha de cabeçalho
+    df_raw = pd.read_excel(str(caminho_xlsx), sheet_name=aba,
+                           header=None, engine="openpyxl", nrows=25)
+    linha_header = 0
+    for i, row in df_raw.iterrows():
+        vals = [str(v).lower() for v in row if pd.notna(v)]
+        if any("digo" in v or "código" in v or "codigo" in v for v in vals):
+            linha_header = i
+            break
+    log("INFO", f"Cabeçalho na linha: {linha_header + 1}")
+
+    # Ler com cabeçalho correto
+    df = pd.read_excel(str(caminho_xlsx), sheet_name=aba,
+                       header=linha_header, engine="openpyxl")
+    df.columns = [str(c).strip() for c in df.columns]
+    df = df.dropna(how="all").reset_index(drop=True)
+
+    # Converter datas para string legível
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].dt.strftime("%d/%m/%Y")
+    df = df.where(pd.notna(df), None)
+
+    registros = df.to_dict(orient="records")
+    total = len(registros)
+
+    # Detectar coluna de correlação
+    col_corr = None
+    for col in df.columns:
+        if "correla" in col.lower():
+            col_corr = col
+            break
+    if not col_corr:
+        for col in df.columns:
+            vals = df[col].dropna().astype(str).str.upper().unique()
+            if "SIM" in vals and any(v in vals for v in ["NÃO", "NAO", "NÂO"]):
+                col_corr = col
+                break
+
+    sim = 0
+    if col_corr:
+        sim = int(df[col_corr].astype(str).str.upper().eq("SIM").sum())
+    log("INFO", f"Correlação: coluna=\"{col_corr}\" | SIM={sim} | NÃO={total - sim}")
+
+    # Extrair versão TUSS do nome do arquivo (ex: TUSS202503 → 2025.03)
+    versao = datetime.now().strftime("%Y.%m")
+    if nome_arquivo:
+        m = re.search(r"TUSS(\d{4})(\d{2})", nome_arquivo, re.IGNORECASE)
+        if m:
+            versao = f"{m.group(1)}.{m.group(2)}"
+
+    dados = {
+        "metadata": {
+            "titulo":            "Correlação TUSS — Rol de Procedimentos ANS",
+            "descricao":         (
+                "Correlação entre a Terminologia Unificada da Saúde Suplementar (TUSS) "
+                "e o Rol de Procedimentos e Eventos em Saúde da ANS (RN 465/2021)."
+            ),
+            "versao":            versao,
+            "data_atualizacao":  datetime.now().strftime("%d/%m/%Y %H:%M"),
+            "fonte":             "ANS — Agência Nacional de Saúde Suplementar",
+            "url_fonte":         ANS_PAGINA,
+            "arquivo_origem":    nome_arquivo or os.path.basename(str(caminho_xlsx)),
+            "total_registros":   total,
+            "com_correlacao":    sim,
+            "sem_correlacao":    total - sim,
+            "coluna_correlacao": col_corr or "não detectada",
+        },
+        "data": registros,
+    }
+
+    log("OK", f"Conversão concluída: {total:,} registros ({sim:,} SIM / {total - sim:,} NÃO)")
+    return dados, versao
+
+
+# ─── Salvar JSON ──────────────────────────────────────────────────────────────
+
+def salvar_json(dados, diretorio, versao):
+    """
+    Salva dois arquivos JSON:
+      1. CorrelacaoTUSS_dados.json  — nome FIXO, carregado automaticamente pelo HTML
+      2. CorrelacaoTUSS_{versao}.json — cópia versionada para histórico
+    """
+    diretorio = Path(diretorio)
+    diretorio.mkdir(parents=True, exist_ok=True)
+
+    def serial(obj):
+        if hasattr(obj, "strftime"):
+            return obj.strftime("%d/%m/%Y")
+        return str(obj)
+
+    conteudo = json.dumps(dados, ensure_ascii=False, indent=2, default=serial)
+
+    # 1. Arquivo principal (nome fixo — HTML carrega este automaticamente)
+    p_principal = diretorio / JSON_PRINCIPAL
+    p_principal.write_text(conteudo, encoding="utf-8")
+    tam = p_principal.stat().st_size / 1024 / 1024
+    log("OK", f"JSON principal: {p_principal.name} ({tam:.1f} MB)")
+
+    # 2. Cópia versionada para histórico
+    p_versao = diretorio / f"CorrelacaoTUSS_{versao}.json"
+    p_versao.write_text(conteudo, encoding="utf-8")
+    log("OK", f"JSON versionado: {p_versao.name}")
+
+    return p_principal, p_versao
+
+
+# ─── Push GitHub ──────────────────────────────────────────────────────────────
+
+def push_github(diretorio, versao, total):
+    """Faz commit e push dos arquivos JSON atualizados para o GitHub."""
+    log("PASSO", "Fazendo commit e push para o GitHub...")
     msg = (
-        f"chore: Atualiza dados TUSS v{versao}\n\n"
-        f"- Total de registros: {total}\n"
+        f"chore: Atualiza dados TUSS v{versao} via download automatico ANS\n\n"
+        f"- Total: {total:,} registros\n"
         f"- Data: {datetime.now().strftime('%d/%m/%Y')}\n"
-        f"- Apenas o JSON foi atualizado (HTML inalterado)"
+        f"- HTML inalterado (apenas JSON atualizado)"
     )
-    for cmd, desc in [
-        (["git", "add", "*.json"],             "Staging JSON"),
-        (["git", "commit", "-m", msg],          "Commit"),
-        (["git", "push", "origin", "HEAD"],     "Push"),
-    ]:
-        r = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_DIR)
+    cmds = [
+        (["git", "add", JSON_PRINCIPAL, f"CorrelacaoTUSS_{versao}.json"], "Staging"),
+        (["git", "commit", "-m", msg], "Commit"),
+        (["git", "push", "origin", "HEAD"], "Push"),
+    ]
+    for cmd, desc in cmds:
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(diretorio))
         if r.returncode != 0:
-            log.erro(f"{desc}: {r.stderr.strip()}")
+            log("AVISO", f"{desc} falhou: {r.stderr.strip()}")
             return False
-        log.ok(desc)
+        log("OK", desc)
     return True
 
 
-def verificar():
+# ─── Verificar versão na ANS ──────────────────────────────────────────────────
+
+def verificar_versao():
+    """Apenas verifica qual versão está disponível na ANS sem baixar."""
     print("\n" + "=" * 60)
-    print("  VERIFICAÇÃO DO REPOSITÓRIO")
-    print("=" * 60 + "\n")
+    print("  VERIFICAÇÃO — VERSÃO DISPONÍVEL NA ANS")
+    print("=" * 60)
+    try:
+        nome, url = detectar_arquivo_ans()
+        print(f"\n  Arquivo mais recente : {nome}")
+        print(f"  URL de download      : {url}")
+        print(f"\n  Página da ANS        : {ANS_PAGINA}")
+    except RuntimeError as e:
+        log("ERRO", str(e))
+        sys.exit(1)
 
-    arquivos = {
-        "Aplicativo HTML (v2)": REPO_DIR / "CorrelacaoTUSS_Interativa_v2.html",
-        "Aplicativo HTML (v1)": REPO_DIR / "CorrelacaoTUSS_Interativa.html",
-        "Dados JSON (padrão)":  JSON_FILE,
-        "Conversor XLS→JSON":   REPO_DIR / "converter_xls_para_json.py",
-        "Atualizador completo": REPO_DIR / "atualizar_tuss.py",
-    }
-
-    for nome, caminho in arquivos.items():
-        if caminho.exists():
-            tam = caminho.stat().st_size / 1024
-            print(f"  ✓ {nome:<30} {tam:>8.1f} KB")
-        else:
-            print(f"  ✗ {nome:<30} AUSENTE")
-
-    if JSON_FILE.exists():
+    # Comparar com JSON local
+    p_local = REPO_DIR / JSON_PRINCIPAL
+    if p_local.exists():
         try:
-            with open(JSON_FILE, encoding="utf-8") as f:
-                dados = json.load(f)
-            meta = dados.get("metadata", {})
-            print(f"\n  Dados JSON atuais:")
-            print(f"    Versão:          {meta.get('versao', 'N/A')}")
-            print(f"    Atualizado em:   {meta.get('data_atualizacao', 'N/A')}")
-            print(f"    Total:           {meta.get('total_registros', 'N/A')} registros")
-            print(f"    Com correlação:  {meta.get('com_correlacao', 'N/A')}")
-        except Exception as e:
-            print(f"\n  Erro ao ler JSON: {e}")
-
-    r = subprocess.run(["git", "log", "--oneline", "-3"], capture_output=True, text=True, cwd=REPO_DIR)
-    if r.returncode == 0:
-        print(f"\n  Últimos commits:")
-        for l in r.stdout.strip().split("\n"):
-            print(f"    {l}")
-    print()
+            with open(p_local, encoding="utf-8") as f:
+                meta = json.load(f).get("metadata", {})
+            print(f"\n  Versão local atual   : {meta.get('versao', 'N/A')}")
+            print(f"  Atualizado em        : {meta.get('data_atualizacao', 'N/A')}")
+            print(f"  Registros            : {meta.get('total_registros', 'N/A')}")
+        except Exception:
+            pass
+    print("=" * 60 + "\n")
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Converte XLS da ANS para JSON sem modificar o HTML.",
+        description="Atualiza a tabela de Correlação TUSS a partir da ANS.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--arquivo", "-a", type=Path, help="Arquivo Excel (.xlsx) da ANS")
-    parser.add_argument("--versao",  "-v", default=datetime.now().strftime("%Y.%m"),
-                        help="Versão dos dados (padrão: AAAA.MM)")
-    parser.add_argument("--sem-push", action="store_true",
-                        help="Não faz push para o GitHub")
-    parser.add_argument("--verificar", action="store_true",
-                        help="Verifica o estado atual do repositório")
+    parser.add_argument("--arquivo", "-a",
+                        help="Arquivo XLS/XLSX local (ignora download automático da ANS)")
+    parser.add_argument("--saida", "-s", default=str(REPO_DIR),
+                        help="Pasta de saída dos arquivos JSON (padrão: pasta do script)")
+    parser.add_argument("--verificar", "-v", action="store_true",
+                        help="Apenas verifica a versão disponível na ANS sem baixar")
+    parser.add_argument("--push", "-p", action="store_true",
+                        help="Após converter, faz commit e push para o GitHub")
     args = parser.parse_args()
 
     print("\n" + "=" * 60)
-    print("  CONVERSOR XLS → JSON — CORRELAÇÃO TUSS")
+    print("  CORRELAÇÃO TUSS — CONVERSOR E ATUALIZADOR AUTOMÁTICO")
     print("=" * 60 + "\n")
 
     if args.verificar:
-        verificar()
+        verificar_versao()
         return
 
-    if not args.arquivo:
-        parser.print_help()
-        print("\nInforme o arquivo Excel com --arquivo caminho/para/arquivo.xlsx\n")
-        sys.exit(1)
+    nome_arquivo = ""
+    caminho_xlsx = None
+    tmp_criado = False
 
-    if not args.arquivo.exists():
-        log.erro(f"Arquivo não encontrado: {args.arquivo}")
-        sys.exit(1)
-
-    total_etapas = 2 if args.sem_push else 3
-
-    # Etapa 1: Converter
-    log.step(1, total_etapas, "Convertendo XLS para JSON...")
-    dados = converter(args.arquivo, args.versao)
-    if not dados:
-        sys.exit(1)
-
-    # Etapa 2: Salvar
-    log.step(2, total_etapas, "Salvando JSON...")
-    json_path = salvar_json(dados, args.versao)
-    if not json_path:
-        sys.exit(1)
-
-    # Etapa 3: Push
-    if not args.sem_push:
-        log.step(3, total_etapas, "Enviando JSON para o GitHub...")
-        if not git_push(args.versao, dados["metadata"]["total_registros"]):
-            log.warn("Push falhou. Faça manualmente: git add *.json && git commit -m 'chore: atualiza JSON' && git push")
+    try:
+        if args.arquivo:
+            # Modo local: usar arquivo fornecido pelo usuário
+            caminho_xlsx = Path(args.arquivo)
+            if not caminho_xlsx.exists():
+                log("ERRO", f"Arquivo não encontrado: {caminho_xlsx}")
+                sys.exit(1)
+            nome_arquivo = caminho_xlsx.name
+            log("INFO", f"Usando arquivo local: {nome_arquivo}")
         else:
-            log.ok("JSON publicado no GitHub!")
+            # Modo automático: detectar e baixar da ANS
+            nome_arquivo, url_download = detectar_arquivo_ans()
+            sufixo = ".xlsx" if nome_arquivo.lower().endswith(".xlsx") else ".xls"
+            tmp = tempfile.NamedTemporaryFile(suffix=sufixo, delete=False)
+            tmp.close()
+            caminho_xlsx = Path(tmp.name)
+            tmp_criado = True
+            baixar_arquivo(url_download, caminho_xlsx)
 
-    print("\n" + "=" * 60)
-    print("  CONVERSÃO CONCLUÍDA!")
-    print("=" * 60)
-    print(f"\n  Versão:    {args.versao}")
-    print(f"  Registros: {dados['metadata']['total_registros']}")
-    print(f"  JSON:      {json_path.name}")
-    print(f"\n  Para atualizar o aplicativo HTML:")
-    print(f"  1. Copie o arquivo '{json_path.name}' para a pasta do HTML")
-    print(f"  2. Abra o HTML no navegador")
-    print(f"  3. Use a barra amarela para carregar o novo JSON")
-    print(f"  4. Os dados são atualizados sem reinstalar nada!\n")
+        # Converter XLSX → JSON
+        dados, versao = converter(caminho_xlsx, nome_arquivo)
+
+        # Salvar arquivos JSON
+        p_principal, p_versao = salvar_json(dados, args.saida, versao)
+
+        # Push opcional para o GitHub
+        if args.push:
+            push_github(Path(args.saida), versao, dados["metadata"]["total_registros"])
+
+        # Resumo final
+        meta = dados["metadata"]
+        print("\n" + "=" * 60)
+        print("  ATUALIZAÇÃO CONCLUÍDA COM SUCESSO")
+        print("=" * 60)
+        print(f"  Versão TUSS     : {meta['versao']}")
+        print(f"  Atualizado em   : {meta['data_atualizacao']}")
+        print(f"  Total registros : {meta['total_registros']:,}")
+        print(f"  Com correlação  : {meta['com_correlacao']:,} (SIM)")
+        print(f"  Sem correlação  : {meta['sem_correlacao']:,} (NÃO)")
+        print(f"  Arquivo origem  : {meta['arquivo_origem']}")
+        print(f"\n  JSON principal  : {p_principal}")
+        print(f"  JSON versionado : {p_versao}")
+        print(f"\n  O HTML carregará automaticamente: {JSON_PRINCIPAL}")
+        print("=" * 60 + "\n")
+
+    except RuntimeError as e:
+        log("ERRO", str(e))
+        sys.exit(1)
+    finally:
+        # Limpar arquivo temporário
+        if tmp_criado and caminho_xlsx and caminho_xlsx.exists():
+            try:
+                caminho_xlsx.unlink()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
