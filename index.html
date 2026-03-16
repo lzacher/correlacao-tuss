@@ -6,6 +6,8 @@
     <title>Correlação TUSS - Visualização Interativa</title>
     <!-- SheetJS: leitura de XLS/XLSX diretamente no navegador -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <!-- Dados locais: carregado via script para funcionar em file:// em todos os navegadores -->
+    <script src="dados.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; padding: 20px; }
@@ -266,17 +268,24 @@ var headers = document.querySelectorAll('th.sortable');
 
 // ─── Inicialização ────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function() {
-    // Prioridade 1: cache localStorage da última sessão
+    // Prioridade 1: cache localStorage (dados atualizados pelo usuário via XLS)
     try {
         var cache = localStorage.getItem('tuss_dados');
         if (cache) {
-            var arq = localStorage.getItem('tuss_arquivo') || 'cache local';
             setStatus('Dados carregados do cache local. Use "Verificar Atualização" para checar novas versões.', '');
             inicializar(JSON.parse(cache));
             return;
         }
     } catch(e) {}
-    // Prioridade 2: tentar carregar JSON externo do mesmo diretório
+
+    // Prioridade 2: dados.js carregado via <script src> — funciona em file:// em TODOS os navegadores
+    if (window.TUSS_DADOS) {
+        setStatus('Dados carregados do arquivo local (dados.js).', '');
+        inicializar(window.TUSS_DADOS);
+        return;
+    }
+
+    // Prioridade 3: fetch do JSON externo (funciona em Firefox/Edge e servidores web)
     tentarCarregarJson(['CorrelacaoTUSS_dados.json', 'CorrelacaoTUSS_2026.01.json',
                         'CorrelacaoTUSS_2025.json', 'dados_tuss.json'], 0);
 });
