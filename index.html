@@ -299,75 +299,69 @@ function verificarAtualizacao() {
     mostrarResultado('verificando', '&#128270; Consultando o site da ANS...', 'Aguarde, estamos verificando se há uma versão mais recente disponível.');
     mostrarProgresso(30);
 
-    // Tentar via proxy local (proxy_ans.py)
-    fetch(PROXY_URL + '/verificar', { signal: AbortSignal.timeout(15000) })
+    // Verificar via API pública do GitHub (sem proxy, funciona em qualquer lugar)
+    // Lê os metadados do JSON publicado no repositório para comparar versões
+    var GITHUB_JSON_URL = 'https://raw.githubusercontent.com/lzacher/correlacao-tuss/master/CorrelacaoTUSS_dados.json';
+    var ANS_PAGINA_URL  = 'https://www.gov.br/ans/pt-br/acesso-a-informacao/participacao-da-sociedade/atualizacao-do-rol-de-procedimentos';
+
+    // Buscar apenas os primeiros 2KB do JSON para extrair os metadados (evita baixar 4MB)
+    fetch(GITHUB_JSON_URL, {
+        headers: { 'Range': 'bytes=0-2048' },
+        signal: AbortSignal.timeout(15000)
+    })
         .then(function(r) {
-            if (!r.ok) throw new Error('Proxy retornou erro ' + r.status);
-            return r.json();
+            if (!r.ok && r.status !== 206) throw new Error('HTTP ' + r.status);
+            return r.text();
         })
-        .then(function(dados) {
+        .then(function(texto) {
+            mostrarProgresso(80);
+            // Extrair campo versao dos metadados do JSON
+            var m = texto.match(/"versao"\s*:\s*"([^"]+)"/);
+            var versaoGithub = m ? m[1] : null;
+            var mArq = texto.match(/"arquivo_origem"\s*:\s*"([^"]+)"/);
+            var arquivoGithub = mArq ? mArq[1] : '';
+            var versaoAnsEstimada = extrairVersao(arquivoGithub) || versaoGithub;
+
             mostrarProgresso(100);
-            processarResultadoVerificacao(dados);
+
+            if (!versaoLocal) {
+                mostrarResultado('desatualizado',
+                    '&#128229; Versão disponível: ' + (versaoAnsEstimada || versaoGithub || '—'),
+                    'Nenhum dado carregado localmente. Use "Carregar XLS manualmente" para começar.',
+                    ANS_PAGINA_URL, 'Acessar site da ANS'
+                );
+            } else if (versaoGithub && versaoGithub === versaoLocal) {
+                mostrarResultado('atualizado',
+                    '&#10003; Você está usando a versão mais recente!',
+                    'Versão em uso: ' + versaoLocal + ' | Versão no repositório: ' + versaoGithub
+                );
+            } else if (versaoGithub && versaoGithub > versaoLocal) {
+                mostrarResultado('desatualizado',
+                    '&#9888; Nova versão disponível: ' + versaoGithub,
+                    'Versão em uso: ' + versaoLocal + ' | Baixe o novo XLS da ANS e use "Carregar XLS manualmente" para atualizar.',
+                    ANS_PAGINA_URL, 'Acessar site da ANS'
+                );
+            } else {
+                mostrarResultado('atualizado',
+                    '&#10003; Dados atualizados',
+                    'Versão em uso: ' + (versaoLocal || '—') + ' | Repositório: ' + (versaoGithub || '—')
+                );
+            }
+            versaoLocalInfo.textContent = 'Versão em uso: ' + (versaoLocal || '—') + ' | Repositório: ' + (versaoGithub || '—');
         })
         .catch(function(err) {
-            // Proxy não disponível: orientar o usuário
             mostrarProgresso(100);
             mostrarResultado('erro',
-                '&#128268; Proxy local não encontrado',
-                'Para verificar automaticamente, inicie o proxy: <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px">python proxy_ans.py</code> — ' +
-                'ou use "Carregar XLS manualmente" para atualizar sem o proxy.'
+                '&#10060; Não foi possível verificar',
+                'Verifique sua conexão com a internet e tente novamente. (' + err.message + ')'
             );
-            setStatus('Proxy não disponível. Inicie proxy_ans.py ou use o carregamento manual.', '');
+            setStatus('Erro ao verificar. Tente novamente ou use o carregamento manual.', 'erro');
         })
         .finally(function() {
             btnVerificar.disabled = false;
             btnVerificar.innerHTML = '&#128270; Verificar Atualização';
             ocultarProgresso();
         });
-}
-
-function processarResultadoVerificacao(dados) {
-    if (dados.erro) {
-        mostrarResultado('erro', '&#10060; Erro ao consultar a ANS', dados.erro);
-        return;
-    }
-
-    var nomeAns = dados.mais_recente ? dados.mais_recente.nome : '';
-    var urlAns  = dados.mais_recente ? dados.mais_recente.url  : '';
-
-    // Extrair versão do nome do arquivo da ANS (ex: TUSS202601 → 2026.01)
-    var versaoAns = extrairVersao(nomeAns);
-
-    if (!versaoLocal) {
-        // Sem dados locais: apenas informar o que está disponível
-        mostrarResultado('desatualizado',
-            '&#128229; Versão disponível na ANS: ' + (versaoAns || nomeAns),
-            'Nenhum dado local encontrado. Baixe o arquivo para começar.',
-            urlAns, nomeAns
-        );
-        return;
-    }
-
-    if (versaoAns && versaoAns === versaoLocal) {
-        mostrarResultado('atualizado',
-            '&#10003; Você está usando a versão mais recente!',
-            'Versão em uso: ' + versaoLocal + ' | Versão na ANS: ' + versaoAns
-        );
-    } else if (versaoAns && versaoAns > versaoLocal) {
-        mostrarResultado('desatualizado',
-            '&#9888; Nova versão disponível: ' + versaoAns,
-            'Versão em uso: ' + versaoLocal + ' | Baixe o novo arquivo para atualizar.',
-            urlAns, nomeAns
-        );
-    } else {
-        mostrarResultado('atualizado',
-            '&#10003; Dados atualizados',
-            'Versão em uso: ' + (versaoLocal || '—') + ' | Versão ANS: ' + (versaoAns || nomeAns)
-        );
-    }
-
-    // Atualizar subtítulo com info da versão
-    versaoLocalInfo.textContent = 'Versão em uso: ' + (versaoLocal || '—') + ' | ANS: ' + (versaoAns || nomeAns);
 }
 
 function extrairVersao(nome) {
