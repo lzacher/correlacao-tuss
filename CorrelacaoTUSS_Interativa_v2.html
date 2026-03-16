@@ -4,18 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Correlação TUSS - Visualização Interativa</title>
+    <!-- SheetJS: leitura de XLS/XLSX diretamente no navegador -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3); overflow: hidden; }
+
+        /* Header */
         .header { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 30px; text-align: center; }
         .header h1 { font-size: 26px; margin-bottom: 8px; }
-        .header p { font-size: 13px; opacity: .9; margin-bottom: 4px; }
+        .header p  { font-size: 13px; opacity: .9; margin-bottom: 4px; }
         .version-badge { display: inline-block; background: rgba(255,255,255,.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-top: 8px; }
+
+        /* Info bar */
         .info-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; padding: 18px 30px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
         .info-item { display: flex; flex-direction: column; }
         .info-label { font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
         .info-value { font-size: 16px; color: #333; font-weight: 600; }
+
+        /* Barra de atualização */
+        .update-bar { padding: 14px 30px; background: #fffbea; border-bottom: 2px solid #ffe58f; }
+        .update-bar-title { font-size: 13px; font-weight: 700; color: #7c5e00; margin-bottom: 10px; }
+        .update-bar-title span { font-weight: 400; color: #a07800; font-size: 12px; margin-left: 8px; }
+        .update-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .update-controls input[type="file"] { flex: 1; min-width: 220px; font-size: 13px; cursor: pointer; padding: 7px; border: 1px dashed #d4a800; border-radius: 6px; background: #fff; }
+        .update-btn { padding: 9px 20px; background: #faad14; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 700; color: #fff; transition: background .2s; white-space: nowrap; }
+        .update-btn:hover { background: #d48806; }
+        .update-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .update-status { width: 100%; font-size: 12px; color: #555; padding-top: 6px; }
+        .update-status.ok   { color: #155724; font-weight: 600; }
+        .update-status.erro { color: #721c24; font-weight: 600; }
+
+        /* Progresso */
+        .progress-wrap { width: 100%; background: #f0e0a0; border-radius: 4px; height: 6px; margin-top: 6px; display: none; }
+        .progress-bar  { height: 6px; background: #faad14; border-radius: 4px; transition: width .3s; width: 0%; }
+
+        /* Controles de busca */
         .controls { padding: 18px 30px; background: #fff; border-bottom: 1px solid #e0e0e0; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; }
         .search-box { flex: 1; min-width: 250px; display: flex; gap: 10px; align-items: center; }
         .search-box input { flex: 1; padding: 10px 15px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; transition: border-color .3s; }
@@ -26,21 +51,15 @@
         .filter-btn { padding: 8px 15px; border: 2px solid #e0e0e0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all .3s; }
         .filter-btn:hover { border-color: #667eea; color: #667eea; }
         .filter-btn.active { background: #667eea; color: #fff; border-color: #667eea; }
-        /* Barra de atualização */
-        .update-bar { padding: 10px 30px; background: #fffbea; border-bottom: 1px solid #ffe58f; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; font-size: 13px; color: #7c5e00; }
-        .update-bar label { font-weight: 600; white-space: nowrap; }
-        .update-bar input[type="file"] { flex: 1; min-width: 200px; font-size: 13px; cursor: pointer; }
-        .update-btn { padding: 8px 18px; background: #faad14; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: #fff; transition: background .3s; white-space: nowrap; }
-        .update-btn:hover { background: #d48806; }
-        .update-status { font-size: 12px; color: #555; }
+
         /* Tabela */
-        .table-wrapper { overflow-x: auto; padding: 20px 30px; max-height: 580px; overflow-y: auto; }
+        .table-wrapper { overflow-x: auto; padding: 20px 30px; max-height: 560px; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         thead { background: #f8f9fa; position: sticky; top: 0; z-index: 10; }
         th { padding: 12px; text-align: left; font-weight: 600; color: #333; border-bottom: 2px solid #e0e0e0; cursor: pointer; user-select: none; white-space: nowrap; transition: background .3s; }
         th:hover { background: #e8eaf6; }
         th.sortable::after { content: ' ⇅'; opacity: .4; font-size: 11px; }
-        th.sorted-asc::after { content: ' ↑'; opacity: 1; color: #667eea; }
+        th.sorted-asc::after  { content: ' ↑'; opacity: 1; color: #667eea; }
         th.sorted-desc::after { content: ' ↓'; opacity: 1; color: #667eea; }
         td { padding: 12px; border-bottom: 1px solid #f0f0f0; color: #555; }
         tbody tr:hover { background: #f8f9fa; }
@@ -48,15 +67,21 @@
         .badge-sim { background: #d4edda; color: #155724; }
         .badge-nao { background: #f8d7da; color: #721c24; }
         .coverage-badge { display: inline-block; padding: 3px 6px; margin: 2px; border-radius: 3px; background: #e3f2fd; color: #1565c0; font-size: 10px; font-weight: 600; }
+
+        /* Loading / Erro */
         .loading { text-align: center; padding: 60px 20px; color: #667eea; }
         .spinner { width: 48px; height: 48px; border: 5px solid #e0e0e0; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .error-box { text-align: center; padding: 40px 20px; color: #721c24; background: #fff5f5; border-radius: 8px; margin: 20px; }
         .no-results { text-align: center; padding: 40px; color: #999; }
+
+        /* Footer */
         .stats { padding: 14px 30px; background: #f8f9fa; border-top: 1px solid #e0e0e0; display: flex; gap: 20px; flex-wrap: wrap; font-size: 12px; color: #888; }
+
+        /* Responsivo */
         @media (max-width: 768px) {
             .header h1 { font-size: 18px; }
-            .controls, .update-bar { flex-direction: column; align-items: flex-start; }
+            .controls, .update-controls { flex-direction: column; align-items: stretch; }
             .search-box { flex-direction: column; }
             .search-box input, .clear-btn { width: 100%; }
             table { font-size: 12px; }
@@ -67,6 +92,7 @@
 <body>
 <div class="container">
 
+    <!-- Header -->
     <div class="header">
         <h1>&#128203; Correlação TUSS — Rol RN 465/2021</h1>
         <p>Tabela de Correlação entre Terminologia de Procedimentos e Eventos em Saúde</p>
@@ -74,6 +100,7 @@
         <span class="version-badge" id="meta-version">—</span>
     </div>
 
+    <!-- Info bar -->
     <div class="info-bar">
         <div class="info-item"><span class="info-label">Total de Registros</span><span class="info-value" id="total-records">—</span></div>
         <div class="info-item"><span class="info-label">Com Correlação</span><span class="info-value" id="sim-count">—</span></div>
@@ -81,17 +108,28 @@
         <div class="info-item"><span class="info-label">Registros Exibidos</span><span class="info-value" id="displayed-count">—</span></div>
     </div>
 
-    <!-- Barra de atualização sem reinstalação -->
+    <!-- Barra de atualização: aceita XLS/XLSX diretamente -->
     <div class="update-bar">
-        <label>&#128260; Atualizar dados:</label>
-        <input type="file" id="jsonFile" accept=".json"
-               title="Selecione o novo arquivo JSON gerado pelo script atualizar_tuss.py">
-        <button class="update-btn" onclick="carregarJsonLocal()">Carregar JSON</button>
-        <span class="update-status" id="updateStatus">
-            Selecione o arquivo JSON gerado pelo script de atualização para atualizar sem reinstalar o aplicativo.
-        </span>
+        <div class="update-bar-title">
+            &#128260; Atualizar dados com novo arquivo da ANS
+            <span>Selecione o arquivo XLS/XLSX publicado pela ANS — a conversão é feita automaticamente</span>
+        </div>
+        <div class="update-controls">
+            <input type="file" id="xlsFile" accept=".xls,.xlsx"
+                   title="Selecione o arquivo XLS ou XLSX da ANS (ex: CorrelacaoTUSS_2026.xlsx)">
+            <button class="update-btn" id="loadXlsBtn" onclick="carregarXls()">
+                &#128257; Converter e Carregar
+            </button>
+        </div>
+        <div class="progress-wrap" id="progressWrap">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="update-status" id="updateStatus">
+            Selecione o arquivo XLS/XLSX da ANS para atualizar os dados sem reinstalar o aplicativo.
+        </div>
     </div>
 
+    <!-- Controles de busca -->
     <div class="controls">
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="&#128269; Buscar por código, procedimento, terminologia...">
@@ -104,6 +142,7 @@
         </div>
     </div>
 
+    <!-- Área da tabela -->
     <div class="table-wrapper">
         <div class="loading" id="loadingBox">
             <div class="spinner"></div>
@@ -113,7 +152,7 @@
             <h3>&#9888; Não foi possível carregar os dados automaticamente</h3>
             <p id="errorMsg"></p>
             <p style="margin-top:12px;font-size:12px;color:#888">
-                Use a barra amarela acima para carregar o arquivo JSON manualmente.
+                Use a barra amarela acima para carregar o arquivo XLS da ANS.
             </p>
         </div>
         <table id="dataTable" style="display:none">
@@ -135,7 +174,7 @@
     </div>
 
     <div class="stats">
-        <span>&#128161; Clique nos cabeçalhos para ordenar | Use a barra amarela para atualizar os dados sem reinstalar</span>
+        <span>&#128161; Clique nos cabeçalhos para ordenar | Use a barra amarela para atualizar com novo XLS da ANS</span>
         <span id="filter-info"></span>
     </div>
 </div>
@@ -145,81 +184,206 @@
 var allRecords = [], colTerm = '', colCorr = '';
 var filtered = [], currentFilter = 'all', sortCol = null, sortDir = 'asc';
 
-// ─── Referências DOM ─────────────────────────────────────────────────────────
-function $(id){ return document.getElementById(id); }
-var searchInput   = $('searchInput'),  clearBtn     = $('clearBtn');
-var tableBody     = $('tableBody'),    dataTable    = $('dataTable');
-var loadingBox    = $('loadingBox'),   errorBox     = $('errorBox'),  errorMsg = $('errorMsg');
-var noResults     = $('noResults'),    displayedCnt = $('displayed-count');
-var simCnt        = $('sim-count'),    naoCnt       = $('nao-count'), totalRec = $('total-records');
-var filterInfo    = $('filter-info'),  metaInfo     = $('meta-info'), metaVer  = $('meta-version');
-var updateStatus  = $('updateStatus');
-var headers       = document.querySelectorAll('th.sortable');
+// ─── DOM ──────────────────────────────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+var searchInput  = $('searchInput'), clearBtn     = $('clearBtn');
+var tableBody    = $('tableBody'),   dataTable    = $('dataTable');
+var loadingBox   = $('loadingBox'),  errorBox     = $('errorBox'), errorMsg = $('errorMsg');
+var noResults    = $('noResults'),   displayedCnt = $('displayed-count');
+var simCnt       = $('sim-count'),   naoCnt       = $('nao-count'), totalRec = $('total-records');
+var filterInfo   = $('filter-info'), metaInfo     = $('meta-info'), metaVer  = $('meta-version');
+var updateStatus = $('updateStatus'), progressWrap = $('progressWrap'), progressBar = $('progressBar');
+var headers      = document.querySelectorAll('th.sortable');
 
 // ─── Inicialização ────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function() {
-    // Prioridade 1: cache do localStorage (última sessão)
+    // Prioridade 1: cache localStorage da última sessão
     try {
         var cache = localStorage.getItem('tuss_dados');
         if (cache) {
             var arq = localStorage.getItem('tuss_arquivo') || 'cache local';
-            updateStatus.textContent = 'Usando dados em cache de: ' + arq + '. Carregue um novo JSON para atualizar.';
+            setStatus('Usando dados em cache de: ' + arq + '. Carregue um novo XLS para atualizar.', '');
             inicializar(JSON.parse(cache));
             return;
         }
     } catch(e) {}
-    // Prioridade 2: fetch automático de arquivos conhecidos
-    tentarCarregar(['CorrelacaoTUSS_2025.json','CorrelacaoTUSS_2026.json','dados_tuss.json'], 0);
+    // Prioridade 2: tentar carregar JSON externo do mesmo diretório
+    tentarCarregarJson(['CorrelacaoTUSS_2025.json', 'CorrelacaoTUSS_2026.json', 'dados_tuss.json'], 0);
 });
 
-function tentarCarregar(lista, idx) {
+function tentarCarregarJson(lista, idx) {
     if (idx >= lista.length) {
-        mostrarErro('Arquivo JSON não encontrado automaticamente. Use a barra amarela para carregar manualmente.');
+        mostrarErro('Nenhum dado encontrado automaticamente. Use a barra amarela para carregar o arquivo XLS da ANS.');
         return;
     }
     fetch(lista[idx])
-        .then(function(r){ if(!r.ok) throw new Error(); return r.json(); })
-        .then(function(d){ inicializar(d); })
-        .catch(function(){ tentarCarregar(lista, idx+1); });
+        .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+        .then(function(d) { inicializar(d); })
+        .catch(function() { tentarCarregarJson(lista, idx + 1); });
 }
 
-// ─── Carregamento manual via input[file] ──────────────────────────────────────
-function carregarJsonLocal() {
-    var fi = $('jsonFile');
+// ─── Carregar e converter XLS/XLSX diretamente no navegador ──────────────────
+function carregarXls() {
+    var fi = $('xlsFile');
     if (!fi.files.length) {
-        updateStatus.textContent = 'Selecione um arquivo JSON antes de clicar em Carregar.';
+        setStatus('Selecione um arquivo XLS ou XLSX antes de clicar em Converter.', 'erro');
         return;
     }
     var file = fi.files[0];
-    updateStatus.textContent = 'Lendo ' + file.name + '...';
+    var btn  = $('loadXlsBtn');
+    btn.disabled = true;
+    setStatus('Lendo ' + file.name + '...', '');
+    mostrarProgresso(20);
+
     var reader = new FileReader();
     reader.onload = function(e) {
         try {
-            var dados = JSON.parse(e.target.result);
-            inicializar(dados);
-            try {
-                localStorage.setItem('tuss_dados', e.target.result);
-                localStorage.setItem('tuss_arquivo', file.name);
-                updateStatus.textContent = 'Dados de ' + file.name + ' carregados e salvos localmente.';
-            } catch(_) {
-                updateStatus.textContent = 'Dados de ' + file.name + ' carregados.';
+            setStatus('Convertendo planilha para dados...', '');
+            mostrarProgresso(50);
+
+            // Ler workbook com SheetJS
+            var data    = new Uint8Array(e.target.result);
+            var wb      = XLSX.read(data, { type: 'array', cellDates: true });
+            var abaName = wb.SheetNames[0];
+            var ws      = wb.Sheets[abaName];
+
+            // Converter para array de arrays para localizar cabeçalho
+            var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+            // Localizar linha de cabeçalho (contém "digo" = Código)
+            var headerRow = -1;
+            for (var i = 0; i < Math.min(raw.length, 20); i++) {
+                var row = raw[i];
+                if (row && row.some(function(v) {
+                    return v && String(v).toLowerCase().indexOf('digo') >= 0;
+                })) {
+                    headerRow = i;
+                    break;
+                }
             }
+            if (headerRow < 0) {
+                setStatus('Cabeçalho não encontrado. Verifique se é o arquivo correto da ANS.', 'erro');
+                btn.disabled = false;
+                ocultarProgresso();
+                return;
+            }
+
+            // Extrair cabeçalhos e dados
+            var cols = raw[headerRow].map(function(v) { return v == null ? '' : String(v).trim(); });
+            var registros = [];
+            for (var r = headerRow + 1; r < raw.length; r++) {
+                var row = raw[r];
+                if (!row || row.every(function(v) { return v == null || v === ''; })) continue;
+                var obj = {};
+                cols.forEach(function(col, ci) {
+                    var val = row[ci];
+                    // Formatar datas
+                    if (val instanceof Date) {
+                        val = val.toLocaleDateString('pt-BR');
+                    }
+                    obj[col] = (val === null || val === undefined) ? null : val;
+                });
+                registros.push(obj);
+            }
+
+            if (!registros.length) {
+                setStatus('Nenhum registro encontrado na planilha.', 'erro');
+                btn.disabled = false;
+                ocultarProgresso();
+                return;
+            }
+
+            mostrarProgresso(80);
+
+            // Detectar coluna de correlação
+            var chaves = Object.keys(registros[0]);
+            var colCorrLocal = chaves.find(function(k) {
+                return k.toLowerCase().indexOf('correla') >= 0 ||
+                       k.indexOf('Sim') >= 0 || k.indexOf('Não') >= 0;
+            }) || '';
+            var sim = registros.filter(function(r) {
+                return String(r[colCorrLocal] || '').toUpperCase() === 'SIM';
+            }).length;
+
+            // Montar envelope JSON
+            var versao = new Date().toISOString().slice(0, 7).replace('-', '.');
+            var dados = {
+                metadata: {
+                    titulo:           'Correlação TUSS - Rol RN 465/2021',
+                    descricao:        'Correlação entre Terminologia TUSS e Rol de Procedimentos ANS.',
+                    versao:           versao,
+                    data_atualizacao: new Date().toLocaleDateString('pt-BR'),
+                    fonte:            'ANS - Agência Nacional de Saúde Suplementar',
+                    total_registros:  registros.length,
+                    com_correlacao:   sim,
+                    sem_correlacao:   registros.length - sim,
+                    arquivo_origem:   file.name
+                },
+                data: registros
+            };
+
+            mostrarProgresso(95);
+
+            // Salvar JSON no localStorage
+            var jsonStr = JSON.stringify(dados);
+            try {
+                localStorage.setItem('tuss_dados', jsonStr);
+                localStorage.setItem('tuss_arquivo', file.name);
+            } catch(e) { /* localStorage cheio */ }
+
+            // Oferecer download do JSON gerado
+            baixarJson(jsonStr, versao);
+
+            mostrarProgresso(100);
+            setStatus(
+                'Conversão concluída! ' + registros.length.toLocaleString('pt-BR') + ' registros (' +
+                sim.toLocaleString('pt-BR') + ' SIM / ' + (registros.length - sim).toLocaleString('pt-BR') +
+                ' NÃO). O arquivo JSON foi baixado automaticamente para uso futuro.',
+                'ok'
+            );
+
+            inicializar(dados);
+
         } catch(err) {
-            updateStatus.textContent = 'Erro ao ler o arquivo: ' + err.message;
+            setStatus('Erro ao processar o arquivo: ' + err.message, 'erro');
         }
+        btn.disabled = false;
+        ocultarProgresso();
     };
-    reader.readAsText(file, 'utf-8');
+    reader.onerror = function() {
+        setStatus('Erro ao ler o arquivo.', 'erro');
+        btn.disabled = false;
+        ocultarProgresso();
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// ─── Download automático do JSON gerado ──────────────────────────────────────
+function baixarJson(jsonStr, versao) {
+    try {
+        var blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'CorrelacaoTUSS_' + versao + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch(e) { /* download não suportado */ }
 }
 
 // ─── Inicializar com dados ────────────────────────────────────────────────────
 function inicializar(dados) {
     var registros = Array.isArray(dados) ? dados : (dados.data || []);
-    var meta = dados.metadata || {};
-    if (!registros.length) { mostrarErro('O arquivo JSON não contém registros.'); return; }
+    var meta      = dados.metadata || {};
+    if (!registros.length) { mostrarErro('O arquivo não contém registros.'); return; }
 
     var chaves = Object.keys(registros[0]);
-    colTerm = chaves.find(function(k){ return k.toLowerCase().indexOf('terminologia') >= 0; }) || chaves[1] || '';
-    colCorr = chaves.find(function(k){ return k.toLowerCase().indexOf('correla') >= 0 || k.indexOf('Sim') >= 0 || k.indexOf('Não') >= 0; }) || '';
+    colTerm = chaves.find(function(k) { return k.toLowerCase().indexOf('terminologia') >= 0; }) || chaves[1] || '';
+    colCorr = chaves.find(function(k) {
+        return k.toLowerCase().indexOf('correla') >= 0 || k.indexOf('Sim') >= 0 || k.indexOf('Não') >= 0;
+    }) || '';
 
     allRecords = registros;
 
@@ -227,7 +391,7 @@ function inicializar(dados) {
     metaInfo.textContent = 'Atualizado em ' + dataAtual + ' | ANS — Agência Nacional de Saúde Suplementar';
     metaVer.textContent  = meta.versao ? 'v' + meta.versao : 'versão atual';
 
-    var sim = registros.filter(function(r){ return String(r[colCorr]||'').toUpperCase() === 'SIM'; }).length;
+    var sim = registros.filter(function(r) { return String(r[colCorr] || '').toUpperCase() === 'SIM'; }).length;
     totalRec.textContent    = registros.length.toLocaleString('pt-BR');
     simCnt.textContent      = sim.toLocaleString('pt-BR');
     naoCnt.textContent      = (registros.length - sim).toLocaleString('pt-BR');
@@ -236,7 +400,6 @@ function inicializar(dados) {
     errorBox.style.display   = 'none';
     dataTable.style.display  = '';
 
-    // Atualizar data-col dos cabeçalhos dinâmicos
     document.querySelector('th[data-col="_terminologia"]').dataset.col = colTerm;
     document.querySelector('th[data-col="_correlacao"]').dataset.col   = colCorr;
 
@@ -247,17 +410,17 @@ function inicializar(dados) {
 function buscar() {
     var q = searchInput.value.toLowerCase().trim();
     filtered = allRecords.filter(function(r) {
-        var ok1 = !q || Object.values(r).some(function(v){ return String(v||'').toLowerCase().indexOf(q) >= 0; });
-        var ok2 = currentFilter === 'all' || String(r[colCorr]||'').toUpperCase() === currentFilter;
+        var ok1 = !q || Object.values(r).some(function(v) { return String(v || '').toLowerCase().indexOf(q) >= 0; });
+        var ok2 = currentFilter === 'all' || String(r[colCorr] || '').toUpperCase() === currentFilter;
         return ok1 && ok2;
     });
     if (sortCol) {
-        filtered.sort(function(a,b){
+        filtered.sort(function(a, b) {
             var av = a[sortCol] != null ? a[sortCol] : '';
             var bv = b[sortCol] != null ? b[sortCol] : '';
             if (!isNaN(av) && !isNaN(bv)) { av = parseFloat(av); bv = parseFloat(bv); }
             else { av = String(av).toLowerCase(); bv = String(bv).toLowerCase(); }
-            return av < bv ? (sortDir==='asc'?-1:1) : av > bv ? (sortDir==='asc'?1:-1) : 0;
+            return av < bv ? (sortDir === 'asc' ? -1 : 1) : av > bv ? (sortDir === 'asc' ? 1 : -1) : 0;
         });
     }
     renderizar();
@@ -274,20 +437,20 @@ function renderizar() {
     noResults.style.display = 'none';
     var frag = document.createDocumentFragment();
     filtered.forEach(function(r) {
-        var tr = document.createElement('tr');
+        var tr   = document.createElement('tr');
         var corr = String(r[colCorr] || '-');
         var cob  = ['OD','AMB','HCO','HSO','PAC','DUT']
-            .filter(function(c){ return r[c] && r[c] !== '---'; })
-            .map(function(c){ return '<span class="coverage-badge">'+c+'</span>'; }).join('') || '-';
+            .filter(function(c) { return r[c] && r[c] !== '---'; })
+            .map(function(c) { return '<span class="coverage-badge">' + c + '</span>'; }).join('') || '-';
         tr.innerHTML =
-            '<td><strong>'+esc(r['Código'])+'</strong></td>' +
-            '<td>'+esc(r[colTerm])+'</td>' +
-            '<td><span class="badge '+(corr==='SIM'?'badge-sim':'badge-nao')+'">'+esc(corr)+'</span></td>' +
-            '<td>'+esc(r['PROCEDIMENTO'])+'</td>' +
-            '<td>'+esc(r['SUBGRUPO'])+'</td>' +
-            '<td>'+esc(r['GRUPO'])+'</td>' +
-            '<td>'+esc(r['CAPÍTULO'])+'</td>' +
-            '<td>'+cob+'</td>';
+            '<td><strong>' + esc(r['Código']) + '</strong></td>' +
+            '<td>' + esc(r[colTerm]) + '</td>' +
+            '<td><span class="badge ' + (corr === 'SIM' ? 'badge-sim' : 'badge-nao') + '">' + esc(corr) + '</span></td>' +
+            '<td>' + esc(r['PROCEDIMENTO']) + '</td>' +
+            '<td>' + esc(r['SUBGRUPO']) + '</td>' +
+            '<td>' + esc(r['GRUPO']) + '</td>' +
+            '<td>' + esc(r['CAPÍTULO']) + '</td>' +
+            '<td>' + cob + '</td>';
         frag.appendChild(tr);
     });
     tableBody.appendChild(frag);
@@ -298,6 +461,18 @@ function esc(v) {
     return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ─── Utilitários de UI ────────────────────────────────────────────────────────
+function setStatus(msg, tipo) {
+    updateStatus.textContent  = msg;
+    updateStatus.className    = 'update-status' + (tipo ? ' ' + tipo : '');
+}
+function mostrarProgresso(pct) {
+    progressWrap.style.display = 'block';
+    progressBar.style.width    = pct + '%';
+}
+function ocultarProgresso() {
+    setTimeout(function() { progressWrap.style.display = 'none'; progressBar.style.width = '0%'; }, 800);
+}
 function mostrarErro(msg) {
     loadingBox.style.display = 'none';
     dataTable.style.display  = 'none';
@@ -306,22 +481,22 @@ function mostrarErro(msg) {
 }
 
 // ─── Eventos ──────────────────────────────────────────────────────────────────
-clearBtn.addEventListener('click', function(){ searchInput.value=''; searchInput.focus(); buscar(); });
+clearBtn.addEventListener('click', function() { searchInput.value = ''; searchInput.focus(); buscar(); });
 searchInput.addEventListener('input', buscar);
-document.querySelectorAll('.filter-btn').forEach(function(btn){
-    btn.addEventListener('click', function(){
-        document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+document.querySelectorAll('.filter-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
         btn.classList.add('active');
         currentFilter = btn.dataset.filter;
         buscar();
     });
 });
-headers.forEach(function(h){
-    h.addEventListener('click', function(){
-        headers.forEach(function(x){ x.classList.remove('sorted-asc','sorted-desc'); });
-        if (sortCol === h.dataset.col) sortDir = sortDir==='asc'?'desc':'asc';
+headers.forEach(function(h) {
+    h.addEventListener('click', function() {
+        headers.forEach(function(x) { x.classList.remove('sorted-asc','sorted-desc'); });
+        if (sortCol === h.dataset.col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
         else { sortCol = h.dataset.col; sortDir = 'asc'; }
-        h.classList.add(sortDir==='asc'?'sorted-asc':'sorted-desc');
+        h.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
         buscar();
     });
 });
