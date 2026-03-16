@@ -54,8 +54,8 @@
         .result-icon { font-size: 20px; flex-shrink: 0; }
         .result-text { flex: 1; }
         .result-text small { display: block; font-weight: 400; font-size: 11px; margin-top: 3px; opacity: .8; }
-        .btn-baixar-ans { padding: 8px 16px; background: #e0a800; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; color: #fff; transition: background .2s; white-space: nowrap; }
-        .btn-baixar-ans:hover { background: #c69500; }
+        .btn-baixar-ans { padding: 8px 16px; background: #e0a800; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; color: #fff; transition: background .2s; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-baixar-ans:hover { background: #c69500; color: #fff; }
 
         /* Barra secundária: carregamento manual de XLS (colapsável) */
         .update-manual { padding: 0 30px; max-height: 0; overflow: hidden; transition: max-height .35s ease, padding .35s ease; background: #fffbea; }
@@ -327,25 +327,25 @@ function verificarAtualizacao() {
 
             if (!versaoLocal) {
                 mostrarResultado('desatualizado',
-                    '&#128229; Versão disponível: ' + (versaoAnsEstimada || versaoGithub || '—'),
-                    'Nenhum dado carregado localmente. Use "Carregar XLS manualmente" para começar.',
-                    ANS_PAGINA_URL, 'Acessar site da ANS'
+                    '&#128229; Versão disponível na ANS: ' + (versaoAnsEstimada || versaoGithub || '—'),
+                    'Nenhum dado carregado. Acesse o site da ANS, baixe o XLS e use "Carregar XLS manualmente".',
+                    ANS_PAGINA_URL
                 );
             } else if (versaoGithub && versaoGithub === versaoLocal) {
                 mostrarResultado('atualizado',
                     '&#10003; Você está usando a versão mais recente!',
-                    'Versão em uso: ' + versaoLocal + ' | Versão no repositório: ' + versaoGithub
+                    'Versão em uso: ' + versaoLocal + ' | Última versão disponível: ' + versaoGithub
                 );
             } else if (versaoGithub && versaoGithub > versaoLocal) {
                 mostrarResultado('desatualizado',
                     '&#9888; Nova versão disponível: ' + versaoGithub,
-                    'Versão em uso: ' + versaoLocal + ' | Baixe o novo XLS da ANS e use "Carregar XLS manualmente" para atualizar.',
-                    ANS_PAGINA_URL, 'Acessar site da ANS'
+                    'Versão em uso: ' + versaoLocal + ' | Acesse o site da ANS, baixe o novo XLS e use "Carregar XLS manualmente" para atualizar.',
+                    ANS_PAGINA_URL
                 );
             } else {
                 mostrarResultado('atualizado',
                     '&#10003; Dados atualizados',
-                    'Versão em uso: ' + (versaoLocal || '—') + ' | Repositório: ' + (versaoGithub || '—')
+                    'Versão em uso: ' + (versaoLocal || '—') + ' | Última versão: ' + (versaoGithub || '—')
                 );
             }
             versaoLocalInfo.textContent = 'Versão em uso: ' + (versaoLocal || '—') + ' | Repositório: ' + (versaoGithub || '—');
@@ -372,7 +372,7 @@ function extrairVersao(nome) {
 }
 
 // ─── Exibir resultado da verificação ─────────────────────────────────────────
-function mostrarResultado(tipo, titulo, detalhe, urlBaixar, nomeArquivo) {
+function mostrarResultado(tipo, titulo, detalhe, urlAns) {
     var classes = {
         atualizado:   'result-atualizado',
         desatualizado:'result-desatualizado',
@@ -387,38 +387,13 @@ function mostrarResultado(tipo, titulo, detalhe, urlBaixar, nomeArquivo) {
             '<strong>' + titulo + '</strong>' +
             '<small>' + detalhe + '</small>' +
         '</div>';
-    if (urlBaixar) {
-        html += '<button class="btn-baixar-ans" onclick="baixarArquivoAns(\'' +
-                urlBaixar.replace(/'/g, "\\'") + '\',\'' +
-                (nomeArquivo || '').replace(/'/g, "\\'") + '\')">' +
-                '&#11015; Baixar e Atualizar</button>';
+    if (urlAns) {
+        html += '<a class="btn-baixar-ans" href="' + urlAns + '" target="_blank" rel="noopener">' +
+                '&#127760; Acessar site da ANS</a>';
     }
     html += '</div>';
     updateResult.innerHTML = html;
     updateResult.classList.add('visivel');
-}
-
-// ─── Baixar XLS via proxy e converter ────────────────────────────────────────
-function baixarArquivoAns(url, nome) {
-    setStatus('Baixando arquivo da ANS via proxy...', '');
-    mostrarProgresso(20);
-
-    fetch(PROXY_URL + '/baixar', { signal: AbortSignal.timeout(60000) })
-        .then(function(r) {
-            if (!r.ok) throw new Error('Erro no download: ' + r.status);
-            return r.arrayBuffer();
-        })
-        .then(function(buffer) {
-            mostrarProgresso(60);
-            setStatus('Convertendo planilha...', '');
-            converterBuffer(buffer, nome || 'arquivo_ans.xlsx');
-        })
-        .catch(function(err) {
-            setStatus('Erro ao baixar via proxy: ' + err.message + '. Use o carregamento manual.', 'erro');
-            ocultarProgresso();
-            // Abrir opção manual automaticamente
-            if (!updateManual.classList.contains('visivel')) toggleManual();
-        });
 }
 
 // ─── Toggle da opção manual ───────────────────────────────────────────────────
